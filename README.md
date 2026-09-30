@@ -38,4 +38,4 @@ Your site will be published at:
 This version is a frontend-only demo. For a real AI backend, you would connect it to OpenAI or another API provider.
 
 ## Preview
-https://arya-da-goat.github.io/Kira/
+https://arya-da-goat.github.io/kira/
