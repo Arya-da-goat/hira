@@ -1,0 +1,9 @@
+{
+  "name": "kira-free-local",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Kira: local-first, free, no-API-key chat with browser vision and multi-source research.",
+  "scripts": {
+    "start": "python -m http.server 8080"
+  }
+}
