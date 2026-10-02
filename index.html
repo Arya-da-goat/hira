@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kira | Chatspace</title>
+    <meta name="description" content="Kira is a ChatGPT-inspired chatspace built for GitHub Pages." />
+    <link rel="stylesheet" href="styles.css" />
+  <meta name="kira-engine" content="v16-reverse-image">
+</head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-top">
+          <button class="icon-btn menu-btn" id="sidebarToggle" aria-label="Close sidebar"><i class="fa-solid fa-bars"></i></button>
+          <div class="sidebar-brand"><span class="brand-dot">K</span><strong>Kira</strong></div>
+          <button class="icon-btn" id="newChatTop" aria-label="New chat"><i class="fa-regular fa-pen-to-square"></i></button>
+        </div>
+
+        <button class="sidebar-new-chat" id="newChat">
+          <i class="fa-solid fa-plus"></i><span>New chat</span>
+        </button>
+        <button class="sidebar-search" id="searchChats">
+          <i class="fa-solid fa-magnifying-glass"></i><span>Search chats</span><span class="shortcut">Ctrl K</span>
+        </button>
+
+        <div class="sidebar-section-title">Chats</div>
+        <div class="thread-list" id="threadList">
+          <div class="thread active"><i class="fa-regular fa-message"></i><span>New conversation</span></div>
+        </div>
+
+        <div class="sidebar-footer">
+          <button class="account-card" id="accountButton">
+            <div class="avatar">A</div>
+            <div class="account-text"><strong>Arya</strong><small>Free plan</small></div>
+            <i class="fa-solid fa-ellipsis"></i>
+          </button>
+          <div class="account-menu" id="accountMenu">
+            <div class="account-heading"><div class="avatar">A</div><div><strong>Arya</strong><small>Free plan</small></div></div>
+            <button><i class="fa-regular fa-user"></i> Account</button>
+            <button><i class="fa-solid fa-gear"></i> Settings</button>
+            <button><i class="fa-solid fa-right-from-bracket"></i> Log out</button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="chat-panel">
+        <header class="topbar">
+          <button class="mobile-menu" id="mobileMenu" aria-label="Open sidebar"><i class="fa-solid fa-bars"></i></button>
+          <div class="model-info"><span class="status"></span><strong>Kira</strong><i class="fa-solid fa-chevron-down"></i></div>
+          <div class="top-actions"><button type="button" aria-label="Share"><i class="fa-solid fa-arrow-up-from-bracket"></i></button><button type="button" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button></div>
+        </header>
+
+        <section id="chat" class="chat-window" aria-live="polite"></section>
+
+        <form id="composer" class="composer">
+          <div id="attachmentList" class="attachment-list"></div>
+          <textarea id="prompt" rows="1" placeholder="Message Kira..."></textarea>
+          <div class="composer-actions">
+            <input id="fileInput" type="file" multiple hidden />
+            <button type="button" class="secondary attach-btn" id="attachButton"><i class="fa-solid fa-paperclip"></i><span>Attach</span></button>
+            <span class="composer-spacer"></span>
+            <button type="submit" class="primary" aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
+          </div>
+        </form>
+      </main>
+    </div>
+
+    <div class="settings-overlay" id="settingsOverlay" aria-hidden="true">
+      <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <header class="settings-header">
+          <button class="settings-back" id="settingsClose" aria-label="Close settings">←</button>
+          <div class="settings-title" id="settingsTitle">Settings</div>
+        </header>
+        <div class="settings-body" id="settingsHome">
+          <div class="settings-profile">
+            <div class="settings-avatar">A<span class="edit-dot">✎</span></div>
+            <div><strong>Arya</strong><small>Personal</small></div>
+          </div>
+          <div class="settings-group-title">My Kira</div>
+          <div class="settings-list">
+            <button class="settings-row" data-settings="personalization"><span class="row-icon">☻</span><span class="row-main"><strong>Personalization</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="memory"><span class="row-icon">▣</span><span class="row-main"><strong>Memory</strong><small>Local conversation memory</small></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="research"><span class="row-icon">⌘</span><span class="row-main"><strong>Research & sources</strong><small>Control when Kira searches</small></span><span class="chevron">›</span></button>
+          </div>
+          <div class="settings-group-title">Account</div>
+          <div class="settings-list">
+            <button class="settings-row" data-settings="workspace"><span class="row-icon">□</span><span class="row-main"><strong>Workspace</strong><small>Personal</small></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="usage"><span class="row-icon">▥</span><span class="row-main"><strong>Usage and limits</strong></span><span class="chevron">›</span></button>
+          </div>
+          <div class="settings-group-title">Preferences</div>
+          <div class="settings-list">
+            <button class="settings-row" data-settings="appearance"><span class="row-icon">☼</span><span class="row-main"><strong>Appearance</strong></span><span class="chevron">⌄</span></button>
+            <button class="settings-row" data-settings="accent"><span class="row-icon">◈</span><span class="row-main"><strong>Accent color</strong><small id="accentSummary">Blue</small></span><span class="chevron">›</span></button>
+          </div>
+          <div class="settings-group-title">General</div>
+          <div class="settings-list">
+            <button class="settings-row" data-settings="general"><span class="row-icon">⚙</span><span class="row-main"><strong>General</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="notifications"><span class="row-icon">♧</span><span class="row-main"><strong>Notifications</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="voice"><span class="row-icon">◖</span><span class="row-main"><strong>Voice</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="security"><span class="row-icon">◉</span><span class="row-main"><strong>Security and login</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="privacy"><span class="row-icon">◉</span><span class="row-main"><strong>Privacy center</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="storage"><span class="row-icon">▤</span><span class="row-main"><strong>Storage</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="data"><span class="row-icon">◌</span><span class="row-main"><strong>Data controls</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="remote"><span class="row-icon">▱</span><span class="row-main"><strong>Remote control</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="export"><span class="row-icon">⇩</span><span class="row-main"><strong>Export & backup</strong><small>Save your conversations locally</small></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="report"><span class="row-icon">⚠</span><span class="row-main"><strong>Report bug</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="about"><span class="row-icon">ⓘ</span><span class="row-main"><strong>About</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row danger" data-settings="logout"><span class="row-icon">↪</span><span class="row-main"><strong>Log out</strong></span></button>
+          </div>
+        </div>
+        <div class="settings-body settings-subpage" id="settingsSubpage"></div>
+      </section>
+    </div>
+
+    <script src="knowledge.js"></script>
+    <script type="module" src="local-ai.js"></script>
+    <script src="app.js"></script>
+  
+<script>
+/* Kira v20 — local personalization + browser voice controls */
+(function(){
+  const KEY="kira_v20_preferences";
+  const defaults={
+    name:"",
+    style:"natural",
+    detail:"balanced",
+    emojis:false,
+    language:"auto",
+    proactive:true,
+    speak:false,
+    voice:"",
+    rate:1,
+    pitch:1,
+    volume:1
+  };
+  let prefs=Object.assign({},defaults);
+  try{ Object.assign(prefs,JSON.parse(localStorage.getItem(KEY)||"{}")); }catch(e){}
+  function save(){localStorage.setItem(KEY,JSON.stringify(prefs));}
+  function voices(){return ("speechSynthesis" in window)?speechSynthesis.getVoices():[];}
+  function apply(){
+    document.documentElement.dataset.kiraStyle=prefs.style;
+    document.documentElement.dataset.kiraDetail=prefs.detail;
+    if(window.KiraPreferences) window.KiraPreferences=prefs;
+    document.dispatchEvent(new CustomEvent("kira:preferences",{detail:{...prefs}}));
+  }
+  window.KiraPreferences=prefs;
+  window.KiraVoice={
+    list:voices,
+    speak:function(text){
+      if(!prefs.speak || !("speechSynthesis" in window)) return;
+      speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(String(text).replace(/[*_`#]/g,""));
+      const v=voices().find(x=>x.name===prefs.voice);
+      if(v) u.voice=v;
+      u.rate=Number(prefs.rate)||1;
+      u.pitch=Number(prefs.pitch)||1;
+      u.volume=Number(prefs.volume)||1;
+      if(prefs.language!=="auto") u.lang=prefs.language;
+      speechSynthesis.speak(u);
+    },
+    stop:function(){if("speechSynthesis" in window)speechSynthesis.cancel();},
+    preview:function(){
+      const n=prefs.name?(" "+prefs.name):"";
+      this.speak("Hi"+n+". I'm Kira. This is a preview of my selected voice.");
+    }
+  };
+  window.KiraSetPreference=function(k,v){
+    if(!(k in prefs)) return;
+    prefs[k]=v; save(); apply();
+  };
+  window.KiraGetPreferences=function(){return {...prefs};};
+  function addPanel(){
+    if(document.getElementById("kira-v20-personalization")) return;
+    const wrap=document.createElement("section");
+    wrap.id="kira-v20-personalization";
+    wrap.setAttribute("aria-label","Kira personalization");
+    wrap.innerHTML=`
+      <div class="kira-v20-card">
+        <h2>Personalization</h2>
+        <label>Your name <input id="k20-name" autocomplete="off" placeholder="Optional"></label>
+        <label>Response style <select id="k20-style">
+          <option value="natural">Natural</option><option value="friendly">Friendly</option>
+          <option value="professional">Professional</option><option value="direct">Direct</option>
+        </select></label>
+        <label>Answer detail <select id="k20-detail">
+          <option value="concise">Concise</option><option value="balanced">Balanced</option><option value="detailed">Detailed</option>
+        </select></label>
+        <label>Language <select id="k20-language"><option value="auto">Automatic</option><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="ta-IN">Tamil</option><option value="hi-IN">Hindi</option></select></label>
+        <label class="k20-check"><input id="k20-proactive" type="checkbox"> Kira may ask useful follow-up questions</label>
+        <label class="k20-check"><input id="k20-speak" type="checkbox"> Read Kira's replies aloud</label>
+        <label>Voice <select id="k20-voice"></select></label>
+        <div class="k20-row"><label>Speed <input id="k20-rate" type="range" min=".5" max="2" step=".05"></label><span id="k20-rate-v"></span></div>
+        <div class="k20-row"><label>Pitch <input id="k20-pitch" type="range" min=".5" max="2" step=".05"></label><span id="k20-pitch-v"></span></div>
+        <div class="k20-buttons"><button id="k20-preview">Preview voice</button><button id="k20-stop">Stop</button></div>
+      </div>`;
+    const host=document.querySelector("#settings, .settings-page, main")||document.body;
+    host.appendChild(wrap);
+    const $=id=>document.getElementById(id);
+    $("k20-name").value=prefs.name; $("k20-style").value=prefs.style; $("k20-detail").value=prefs.detail;
+    $("k20-language").value=prefs.language; $("k20-proactive").checked=prefs.proactive; $("k20-speak").checked=prefs.speak;
+    $("k20-rate").value=prefs.rate; $("k20-pitch").value=prefs.pitch;
+    $("k20-rate-v").textContent=prefs.rate+"×"; $("k20-pitch-v").textContent=prefs.pitch;
+    const bind=(id,key,event="change")=>$(id).addEventListener(event,e=>KiraSetPreference(key,e.target.type==="checkbox"?e.target.checked:e.target.value));
+    bind("k20-name","name","input"); bind("k20-style","style"); bind("k20-detail","detail"); bind("k20-language","language");
+    bind("k20-proactive","proactive"); bind("k20-speak","speak");
+    $("k20-rate").addEventListener("input",e=>{$("k20-rate-v").textContent=e.target.value+"×";KiraSetPreference("rate",e.target.value)});
+    $("k20-pitch").addEventListener("input",e=>{$("k20-pitch-v").textContent=e.target.value;KiraSetPreference("pitch",e.target.value)});
+    function fill(){
+      const sel=$("k20-voice"), vs=voices();
+      sel.innerHTML="";
+      if(!vs.length){sel.innerHTML="<option>No browser voices available</option>";return;}
+      vs.forEach(v=>{const o=document.createElement("option");o.value=v.name;o.textContent=v.name+" — "+v.lang;if(v.name===prefs.voice)o.selected=true;sel.appendChild(o);});
+      if(!prefs.voice && vs[0]){prefs.voice=vs[0].name;save();}
+    }
+    $("k20-voice").addEventListener("change",e=>KiraSetPreference("voice",e.target.value));
+    $("k20-preview").onclick=()=>KiraVoice.preview(); $("k20-stop").onclick=()=>KiraVoice.stop();
+    fill(); if("speechSynthesis" in window) speechSynthesis.onvoiceschanged=fill;
+  }
+  const css=document.createElement("style");
+  css.textContent=`#kira-v20-personalization{margin:16px 0}.kira-v20-card{max-width:620px;padding:20px;border-radius:18px;background:var(--card-bg,#17191f);color:inherit;border:1px solid rgba(128,128,128,.22);box-sizing:border-box}.kira-v20-card h2{margin-top:0}.kira-v20-card label{display:block;margin:12px 0}.kira-v20-card input,.kira-v20-card select{width:100%;box-sizing:border-box;margin-top:6px;padding:10px;border-radius:10px}.kira-v20-card .k20-check{display:flex;gap:8px;align-items:center}.kira-v20-card .k20-check input{width:auto;margin:0}.k20-row{display:flex;gap:10px;align-items:center}.k20-row label{flex:1}.k20-buttons{display:flex;gap:10px}.k20-buttons button{padding:10px 14px;border-radius:10px;border:0;cursor:pointer}`;
+  document.head.appendChild(css);
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",addPanel); else addPanel();
+  apply();
+})();
+</script>
+</body>
+</html>
