@@ -8,9 +8,9 @@
     <meta property="og:title" content="Kira | Local AI" />
     <meta property="og:description" content="Kira is a ChatGPT-inspired chatspace built for GitHub Pages and local-first intelligent conversations." />
     <link rel="stylesheet" href="styles.css" />
-  <meta name="kira-engine" content="v22-local-smart">
+    <meta name="kira-engine" content="v22-local-smart">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.min.css">
-</head>
+  </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar" id="sidebar">
@@ -27,6 +27,15 @@
           <i class="fa-solid fa-magnifying-glass"></i><span>Search chats</span><span class="shortcut">Ctrl K</span>
         </button>
 
+        <button class="sidebar-train-btn" id="sidebarTrainBtn">
+          <i class="fa-solid fa-brain"></i>
+          <div class="train-btn-content">
+            <strong>Trainable Brain</strong>
+            <small id="sidebarMemoryLabel">1 active rule • Self-training</small>
+          </div>
+          <span class="train-pill">Active</span>
+        </button>
+
         <div class="sidebar-section-title">Chats</div>
         <div class="thread-list" id="threadList">
           <div class="thread active"><i class="fa-regular fa-message"></i><span>New conversation</span></div>
@@ -35,14 +44,15 @@
         <div class="sidebar-footer">
           <button class="account-card" id="accountButton">
             <div class="avatar">A</div>
-            <div class="account-text"><strong>Arya</strong><small>Free plan</small></div>
+            <div class="account-text"><strong>Arya</strong><small>Continuous Learning AI</small></div>
             <i class="fa-solid fa-ellipsis"></i>
           </button>
           <div class="account-menu" id="accountMenu">
-            <div class="account-heading"><div class="avatar">A</div><div><strong>Arya</strong><small>Free plan</small></div></div>
-            <button><i class="fa-regular fa-user"></i> Account</button>
-            <button><i class="fa-solid fa-gear"></i> Settings</button>
-            <button><i class="fa-solid fa-right-from-bracket"></i> Log out</button>
+            <div class="account-heading"><div class="avatar">A</div><div><strong>Arya</strong><small>Continuous Learning AI</small></div></div>
+            <button id="accountMenuTrain"><i class="fa-solid fa-brain"></i> Train Brain</button>
+            <button id="accountMenuSettings"><i class="fa-solid fa-gear"></i> Settings</button>
+            <button id="accountMenuExport"><i class="fa-solid fa-download"></i> Export Chat</button>
+            <button id="accountMenuZip"><i class="fa-solid fa-file-zipper"></i> Download Project ZIP</button>
           </div>
         </div>
       </aside>
@@ -50,25 +60,224 @@
       <main class="chat-panel">
         <header class="topbar">
           <button class="mobile-menu" id="mobileMenu" aria-label="Open sidebar"><i class="fa-solid fa-bars"></i></button>
-          <div class="model-info"><span class="status"></span><strong>Kira</strong><i class="fa-solid fa-chevron-down"></i></div>
-          <div class="top-actions"><button type="button" aria-label="Share"><i class="fa-solid fa-arrow-up-from-bracket"></i></button><button type="button" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button></div>
+          <div class="model-info" id="modelSelectorBtn">
+            <span class="status online"></span>
+            <strong>Kira Brain</strong>
+            <span class="engine-badge" id="engineBadge">Adaptive AI</span>
+          </div>
+
+          <div class="bg-training-pill" id="bgTrainingPill" title="Background Self-Training Active">
+            <span class="training-pulse"></span>
+            <span id="bgTrainingEpochText">Self-Training in Background</span>
+          </div>
+
+          <div class="top-actions">
+            <button type="button" class="top-action-btn brain-btn" id="openBrainBtn" title="Train Kira & View Learned Memories">
+              <i class="fa-solid fa-brain"></i>
+              <span>Brain</span>
+              <span class="brain-badge" id="brainBadgeCount">1</span>
+            </button>
+            <button type="button" class="top-action-btn summarize-btn" id="summarizeChatBtn" title="Summarize conversation">
+              <i class="fa-solid fa-list-check"></i>
+              <span>Summarize</span>
+            </button>
+            <button type="button" class="top-action-btn search-toggle-btn active" id="searchGroundingToggle" title="Toggle Web Knowledge & Live Sources">
+              <i class="fa-solid fa-globe"></i>
+              <span id="searchToggleLabel">Sources On</span>
+            </button>
+            <button type="button" class="icon-btn" aria-label="Share" id="shareChatBtn" title="Share transcript"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>
+            <button type="button" class="icon-btn" aria-label="More" id="moreOptionsBtn" title="Download ZIP"><i class="fa-solid fa-ellipsis"></i></button>
+          </div>
         </header>
 
-        <section id="chat" class="chat-window" aria-live="polite"></section>
-
-        <form id="composer" class="composer">
-          <div id="attachmentList" class="attachment-list"></div>
-          <textarea id="prompt" rows="1" placeholder="Message Kira..."></textarea>
-          <div class="composer-actions">
-            <input id="fileInput" type="file" multiple hidden />
-            <button type="button" class="secondary attach-btn" id="attachButton"><i class="fa-solid fa-paperclip"></i><span>Attach</span></button>
-            <span class="composer-spacer"></span>
-            <button type="submit" class="primary" aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
+        <section id="chat" class="chat-window" aria-live="polite">
+          <div class="welcome-hero" id="welcomeHero">
+            <div class="hero-brand">
+              <div class="hero-icon"><i class="fa-solid fa-brain"></i></div>
+              <h2>How can I help you today?</h2>
+              <p>I have my own adaptive brain, live web search grounding, mathematical reasoning, and full-stack coding capabilities. I continuously learn and self-train in the background with every message.</p>
+            </div>
+            <div class="prompt-grid">
+              <button class="prompt-card" data-prompt="Solve this step-by-step with formulas: Find the roots of 3x^2 - 12x + 9 = 0 and explain the quadratic formula derivation.">
+                <i class="fa-solid fa-square-root-variable"></i>
+                <strong>Solve Math Problem</strong>
+                <span>Step-by-step algebraic derivations</span>
+              </button>
+              <button class="prompt-card" data-prompt="Write a clean, production-ready Python asynchronous script to fetch multiple URLs concurrently with rate limiting and retry backoff.">
+                <i class="fa-solid fa-code"></i>
+                <strong>Write Production Code</strong>
+                <span>Idiomatic algorithms with complexity</span>
+              </button>
+              <button class="prompt-card" data-prompt="Summarize the core concepts of Quantum Computing vs Classical Computing in a concise executive table with key takeaways.">
+                <i class="fa-solid fa-table-columns"></i>
+                <strong>Executive Summary</strong>
+                <span>Comparative matrix & conclusions</span>
+              </button>
+              <button class="prompt-card" data-prompt="Search the latest advancements in artificial intelligence models this year and synthesize the key breakthroughs with sources.">
+                <i class="fa-solid fa-globe"></i>
+                <strong>Web Research</strong>
+                <span>Grounded factual analysis with sources</span>
+              </button>
+            </div>
           </div>
-        </form>
+        </section>
+
+        <!-- Quick suggestion pills above composer -->
+        <div class="composer-container">
+          <div class="quick-chips" id="quickChips">
+            <button type="button" class="chip" data-chip="solve math">📐 Math</button>
+            <button type="button" class="chip" data-chip="write code">💻 Code</button>
+            <button type="button" class="chip" data-chip="executive summary">📋 Summary</button>
+            <button type="button" class="chip" data-chip="train rule">🧠 Train Rule</button>
+            <button type="button" class="chip" data-chip="compare">⚖️ Compare</button>
+          </div>
+
+          <form id="composer" class="composer">
+            <div id="attachmentList" class="attachment-list"></div>
+            <textarea id="prompt" rows="1" placeholder="Message Kira... (Ask anything, solve math, code, or train a rule)"></textarea>
+            <div class="composer-actions">
+              <input id="fileInput" type="file" multiple hidden />
+              <button type="button" class="secondary attach-btn" id="attachButton" title="Attach files or images"><i class="fa-solid fa-paperclip"></i><span>Attach</span></button>
+              <span class="learning-hint" id="learningHint"><i class="fa-solid fa-bolt"></i> Self-training continuously in background</span>
+              <span class="composer-spacer"></span>
+              <button type="submit" class="primary" id="sendBtn" aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
+            </div>
+          </form>
+        </div>
       </main>
     </div>
 
+    <!-- Brain & Training Modal -->
+    <div class="brain-modal-overlay" id="brainModal" aria-hidden="true">
+      <div class="brain-modal" role="dialog" aria-modal="true" aria-labelledby="brainModalTitle">
+        <header class="brain-modal-header">
+          <div class="brain-title-wrap">
+            <i class="fa-solid fa-brain"></i>
+            <div>
+              <h3 id="brainModalTitle">Kira's Trainable Brain</h3>
+              <p>Self-trains in the background, adapts to your tone, and retains persistent rules.</p>
+            </div>
+          </div>
+          <button class="icon-btn modal-close" id="closeBrainModal" aria-label="Close brain modal"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+
+        <div class="brain-stats-bar">
+          <div class="stat-item">
+            <strong id="statMemoriesCount">1</strong>
+            <span>Active Memories</span>
+          </div>
+          <div class="stat-item">
+            <strong id="statKnowledgeCount">1</strong>
+            <span>Knowledge Docs</span>
+          </div>
+          <div class="stat-item">
+            <strong class="stat-badge" id="statBgEpochBadge"><i class="fa-solid fa-bolt"></i> Epoch <span id="statEpochNum">1</span></strong>
+            <span>Background Self-Training</span>
+          </div>
+        </div>
+
+        <div class="brain-tabs">
+          <button class="brain-tab active" data-tab="train"><i class="fa-solid fa-plus"></i> Teach Kira</button>
+          <button class="brain-tab" data-tab="memories"><i class="fa-solid fa-memory"></i> Learned Rules (<span id="tabMemCount">1</span>)</button>
+          <button class="brain-tab" data-tab="knowledge"><i class="fa-solid fa-book-bookmark"></i> Knowledge Base</button>
+          <button class="brain-tab" data-tab="bgtrain"><i class="fa-solid fa-bolt"></i> Background Training</button>
+        </div>
+
+        <div class="brain-tab-body active" id="tabContentTrain">
+          <div class="train-box">
+            <h4><i class="fa-solid fa-lightbulb"></i> Teach Kira a Rule or Preference</h4>
+            <p>Tell Kira how you want it to behave, write code, format math, or remember personal context.</p>
+            <div class="train-input-group">
+              <label for="trainCategorySelect">Category:</label>
+              <select id="trainCategorySelect">
+                <option value="Coding Style">Coding Style (e.g. "Always use TypeScript and type annotations")</option>
+                <option value="Math & Reasoning">Math & Reasoning (e.g. "Always derive step-by-step with LaTeX formulas")</option>
+                <option value="Summary Format">Summary Format (e.g. "Summaries should have bulleted takeaways")</option>
+                <option value="Tone & Persona">Tone & Persona (e.g. "Be direct, concise, and professional")</option>
+                <option value="Personal Context">Personal Context (e.g. "I work in bio-informatics")</option>
+                <option value="Custom Rule">General Custom Rule</option>
+              </select>
+            </div>
+            <div class="train-input-group">
+              <label for="trainRuleInput">Training Instruction:</label>
+              <textarea id="trainRuleInput" rows="3" placeholder="e.g. Always write Python code with PEP8 formatting, docstrings, and type hints."></textarea>
+            </div>
+            <div class="train-presets">
+              <span>Quick Presets:</span>
+              <button type="button" class="preset-pill" data-preset="Always explain mathematical equations step-by-step using LaTeX formulas.">LaTeX Math Derivation</button>
+              <button type="button" class="preset-pill" data-preset="When writing code, include time and space complexity analysis and edge-case handling.">Algorithmic Complexities</button>
+              <button type="button" class="preset-pill" data-preset="Structure all summaries with Executive Overview, Key Insights, and Action Items.">Executive Summaries</button>
+              <button type="button" class="preset-pill" data-preset="Format all answers cleanly with markdown tables and bulleted highlights where applicable.">Tabular Data Styling</button>
+            </div>
+            <button type="button" class="primary train-submit-btn" id="trainRuleSubmitBtn">
+              <i class="fa-solid fa-graduation-cap"></i> Train Kira Now
+            </button>
+          </div>
+        </div>
+
+        <div class="brain-tab-body" id="tabContentMemories">
+          <div class="memories-toolbar">
+            <span>All memories currently active in Kira's cognitive brain:</span>
+            <button type="button" class="btn-clear-memories" id="btnClearAllMemories"><i class="fa-solid fa-trash-can"></i> Reset to Default</button>
+          </div>
+          <div class="memories-list" id="memoriesList"></div>
+        </div>
+
+        <div class="brain-tab-body" id="tabContentKnowledge">
+          <div class="train-box">
+            <h4><i class="fa-solid fa-file-circle-plus"></i> Add Knowledge Document</h4>
+            <p>Upload or paste verified reference documentation or custom notes for Kira to ground on.</p>
+            <div class="train-input-group">
+              <label for="kbTitleInput">Document Title:</label>
+              <input type="text" id="kbTitleInput" placeholder="e.g. Company Engineering Standards or Project Specification" />
+            </div>
+            <div class="train-input-group">
+              <label for="kbContentInput">Content / Notes:</label>
+              <textarea id="kbContentInput" rows="4" placeholder="Paste custom documentation, API specifications, or verified facts here..."></textarea>
+            </div>
+            <button type="button" class="primary train-submit-btn" id="kbSubmitBtn">
+              <i class="fa-solid fa-floppy-disk"></i> Save to Knowledge Base
+            </button>
+          </div>
+          <div class="knowledge-list" id="knowledgeList"></div>
+        </div>
+
+        <!-- Background Training Tab -->
+        <div class="brain-tab-body" id="tabContentBgTrain">
+          <div class="bg-train-overview">
+            <div class="bg-train-card">
+              <span class="label">Training Epoch</span>
+              <strong id="bgModalEpoch">1</strong>
+              <small>Auto-increments every message</small>
+            </div>
+            <div class="bg-train-card">
+              <span class="label">Neural Synapses</span>
+              <strong id="bgModalSynapses">1,240</strong>
+              <small>Dynamic memory associations</small>
+            </div>
+            <div class="bg-train-card">
+              <span class="label">Adapted Tone</span>
+              <strong id="bgModalTone">balanced</strong>
+              <small>Emotionally responsive</small>
+            </div>
+          </div>
+
+          <div class="bg-train-actions">
+            <button type="button" class="btn-cycle" id="btnRunBgCycle">
+              <i class="fa-solid fa-arrows-rotate"></i> Run Background Optimization Cycle
+            </button>
+          </div>
+
+          <div class="bg-section-title">Learned Adaptations & Behavioral Postures:</div>
+          <div class="adaptations-list" id="bgAdaptationsList"></div>
+
+          <div class="bg-section-title">Live Background Training Telemetry Log:</div>
+          <div class="telemetry-log" id="bgTrainingLog"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Overlay -->
     <div class="settings-overlay" id="settingsOverlay" aria-hidden="true">
       <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
         <header class="settings-header">
@@ -78,18 +287,13 @@
         <div class="settings-body" id="settingsHome">
           <div class="settings-profile">
             <div class="settings-avatar">A<span class="edit-dot">✎</span></div>
-            <div><strong>Arya</strong><small>Personal</small></div>
+            <div><strong>Arya</strong><small>Continuous Learning AI</small></div>
           </div>
-          <div class="settings-group-title">My Kira</div>
+          <div class="settings-group-title">Kira Cognitive Brain</div>
           <div class="settings-list">
+            <button class="settings-row" id="settingsOpenBrain"><span class="row-icon"><i class="fa-solid fa-brain"></i></span><span class="row-main"><strong>Trainable Brain & Memory</strong><small id="settingsBrainSub">Active & learning with every turn</small></span><span class="chevron">›</span></button>
             <button class="settings-row" data-settings="personalization"><span class="row-icon"><i class="fa-regular fa-user"></i></span><span class="row-main"><strong>Personalization</strong></span><span class="chevron">›</span></button>
-            <button class="settings-row" data-settings="memory"><span class="row-icon"><i class="fa-solid fa-brain"></i></span><span class="row-main"><strong>Memory</strong><small>Local conversation memory</small></span><span class="chevron">›</span></button>
-            <button class="settings-row" data-settings="research"><span class="row-icon"><i class="fa-solid fa-globe"></i></span><span class="row-main"><strong>Research & sources</strong><small>Control when Kira searches</small></span><span class="chevron">›</span></button>
-          </div>
-          <div class="settings-group-title">Account</div>
-          <div class="settings-list">
-            <button class="settings-row" data-settings="workspace"><span class="row-icon"><i class="fa-solid fa-layer-group"></i></span><span class="row-main"><strong>Workspace</strong><small>Personal</small></span><span class="chevron">›</span></button>
-            <button class="settings-row" data-settings="usage"><span class="row-icon"><i class="fa-solid fa-chart-simple"></i></span><span class="row-main"><strong>Usage and limits</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="research"><span class="row-icon"><i class="fa-solid fa-globe"></i></span><span class="row-main"><strong>Research & sources</strong><small>Control Google Search grounding</small></span><span class="chevron">›</span></button>
           </div>
           <div class="settings-group-title">Preferences</div>
           <div class="settings-list">
@@ -101,25 +305,20 @@
             <button class="settings-row" data-settings="general"><span class="row-icon"><i class="fa-solid fa-gear"></i></span><span class="row-main"><strong>General</strong></span><span class="chevron">›</span></button>
             <button class="settings-row" data-settings="notifications"><span class="row-icon"><i class="fa-regular fa-bell"></i></span><span class="row-main"><strong>Notifications</strong></span><span class="chevron">›</span></button>
             <button class="settings-row" data-settings="voice"><span class="row-icon"><i class="fa-solid fa-volume-high"></i></span><span class="row-main"><strong>Voice</strong></span><span class="chevron">›</span></button>
-            <button class="settings-row" data-settings="security"><span class="row-icon"><i class="fa-solid fa-shield-halved"></i></span><span class="row-main"><strong>Security and login</strong></span><span class="chevron">›</span></button>
-            <button class="settings-row" data-settings="privacy"><span class="row-icon"><i class="fa-solid fa-shield-halved"></i></span><span class="row-main"><strong>Privacy center</strong></span><span class="chevron">›</span></button>
-            <button class="settings-row" data-settings="storage"><span class="row-icon"><i class="fa-solid fa-hard-drive"></i></span><span class="row-main"><strong>Storage</strong></span><span class="chevron">›</span></button>
-            <button class="settings-row" data-settings="data"><span class="row-icon"><i class="fa-solid fa-database"></i></span><span class="row-main"><strong>Data controls</strong></span><span class="chevron">›</span></button>
-            <button class="settings-row" data-settings="remote"><span class="row-icon"><i class="fa-solid fa-tower-broadcast"></i></span><span class="row-main"><strong>Remote control</strong></span><span class="chevron">›</span></button>
-            <button class="settings-row" data-settings="export"><span class="row-icon"><i class="fa-solid fa-download"></i></span><span class="row-main"><strong>Export & backup</strong><small>Save your conversations locally</small></span><span class="chevron">›</span></button>
-            <button class="settings-row" data-settings="report"><span class="row-icon"><i class="fa-solid fa-bug"></i></span><span class="row-main"><strong>Report bug</strong></span><span class="chevron">›</span></button>
+            <button class="settings-row" data-settings="export"><span class="row-icon"><i class="fa-solid fa-download"></i></span><span class="row-main"><strong>Export & backup</strong><small>Save your conversations</small></span><span class="chevron">›</span></button>
             <button class="settings-row" data-settings="about"><span class="row-icon"><i class="fa-solid fa-circle-info"></i></span><span class="row-main"><strong>About</strong></span><span class="chevron">›</span></button>
-            <button class="settings-row danger" data-settings="logout"><span class="row-icon"><i class="fa-solid fa-right-from-bracket"></i></span><span class="row-main"><strong>Log out</strong></span></button>
           </div>
         </div>
         <div class="settings-body settings-subpage" id="settingsSubpage"></div>
       </section>
     </div>
 
+    <!-- Notification Toast for continuous learning -->
+    <div class="brain-toast" id="brainToast" aria-live="polite"></div>
+
     <script src="markdown.js"></script>
     <script src="knowledge.js"></script>
     <script type="module" src="local-ai.js"></script>
     <script src="app.js"></script>
-  
-</body>
+  </body>
 </html>
