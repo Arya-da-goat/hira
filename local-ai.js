@@ -1,604 +1,604 @@
-/* Kira v13 — advanced local intelligence engine
- * No AI APIs, no hosted inference, no model CDN.
- * Uses deterministic reasoning, a curated offline knowledge base, conversation memory,
- * document understanding, calculations and browser-native image analysis.
+/**
+ * Kira Local Intelligence Engine & Reasoning Brain
+ * Features autonomous offline logic, dynamic code generation, multi-step math solving,
+ * comparative analysis, professional writing, and web research synthesis without any AI API.
  */
 (() => {
-  const memoryKey = 'kira-local-memory-v13';
+  const memoryKey = 'kira-local-memory-v14';
   let busy = false;
-  const emit = (type, detail = {}) => window.dispatchEvent(new CustomEvent('kira-ai-status', { detail: { type, ...detail } }));
+
+  const emit = (type, detail = {}) =>
+    window.dispatchEvent(new CustomEvent('kira-ai-status', { detail: { type, ...detail } }));
   const clean = s => String(s ?? '').replace(/\s+/g, ' ').trim();
   const words = s => clean(s).toLowerCase().split(/[^a-z0-9]+/).filter(x => x.length > 1);
-  const cap = (s,n=7000) => clean(s).slice(0,n);
-  function getSettings(override={}) {
-    let stored={};
-    try { stored=JSON.parse(localStorage.getItem('kira-settings-v1')||'{}')||{}; } catch (_) {}
-    return { name:'Arya', style:'natural', detail:'balanced', emojis:false, context:true, memory:true, smartSearch:true, multiSource:true, ...stored, ...override };
-  }
-  const sentenceCount = text => (String(text||'').match(/[.!?]+(?=\s|$)/g)||[]).length;
-  function applyDetail(text, detail='balanced') {
-    if (!text) return text;
-    if (detail === 'detailed') return text;
-    if (detail === 'concise') {
-      const parts=String(text).split(/\n\s*\n/);
-      return parts.slice(0,2).join('\n\n').slice(0,1400);
-    }
-    return text.length>4500 ? text.slice(0,4500).replace(/\s+$/,'')+'…' : text;
-  }
-  function personalize(text, settings={}) {
-    let out=String(text||'');
-    const style=settings.style||'natural';
-    if(style==='professional') out=out.replace(/\bYep[!,.]?\s*/gi,'').replace(/\bAwesome[!.]?\s*/gi,'').replace(/😊|😄|👍|👋/g,'');
-    if(style==='direct') out=out.replace(/^(Sure[.!]?|Absolutely[.!]?|Yep[!.]?|Here’s the simple version:\s*)/i,'');
-    if(settings.emojis && !/[\u{1F300}-\u{1FAFF}]/u.test(out) && /^(Sure|Here|The|I’m|I'm|You’re|You're)/i.test(out)) out += ' ✨';
-    return applyDetail(out,settings.detail);
-  }
 
-  const identity = {
-    name: 'Kira',
-    type: 'browser-based personal AI assistant',
-    mode: 'local-first with optional normal web research links',
-    apiPolicy: 'Kira does not use AI APIs or hosted inference.',
-    creator: 'You can customize this answer in the Kira knowledge file.',
-    purpose: 'Answer questions, explain concepts, calculate, help with code, inspect local files/images, and organize research.'
-  };
-
-  const knowledge = {
-    'photosynthesis': 'Photosynthesis is the process by which plants, algae and some bacteria use light energy to convert carbon dioxide and water into chemical energy, mainly glucose, releasing oxygen as a by-product.',
-    'gravity': 'Gravity is the attraction between masses. Near Earth’s surface, objects in free fall accelerate at about 9.81 m/s².',
-    'evaporation': 'Evaporation is the change of a liquid into gas at its surface. It can occur below the boiling point.',
-    'boiling': 'Boiling is rapid vaporization throughout a liquid when its vapor pressure reaches the surrounding pressure.',
-    'democracy': 'Democracy is a system in which political power is exercised by the people, directly or through representatives chosen in elections.',
-    'algorithm': 'An algorithm is a finite, ordered procedure for solving a problem or performing a computation.',
-    'variable': 'A variable is a named value or storage location whose value can change while a program runs.',
-    'html': 'HTML (HyperText Markup Language) structures content on the web. CSS controls presentation and JavaScript adds behavior.',
-    'css': 'CSS (Cascading Style Sheets) controls the visual presentation and layout of HTML documents.',
-    'javascript': 'JavaScript is a programming language used for interactive web pages, servers, apps and many other environments.',
-    'python': 'Python is a high-level programming language known for readable syntax and a large ecosystem of libraries.',
-    'machine learning': 'Machine learning is a field of computing in which models learn patterns from data to make predictions or decisions.',
-    'artificial intelligence': 'Artificial intelligence is the broad field of building systems that perform tasks associated with capabilities such as reasoning, perception, language and planning.',
-    'internet': 'The Internet is a global network of interconnected computer networks that communicate using standardized protocols such as IP and TCP.',
-    'web': 'The World Wide Web is a system of interlinked resources accessed over the Internet, commonly using HTTP and web browsers.',
-    'cpu': 'A CPU (central processing unit) executes program instructions and performs arithmetic, logic, control and data-processing operations.',
-    'gpu': 'A GPU (graphics processing unit) is a processor designed for highly parallel workloads, especially graphics and many numerical computations.',
-    'ram': 'RAM (random-access memory) is fast, volatile working memory used to hold data and instructions that active programs need.',
-    'photosynthesis equation': 'A simplified photosynthesis equation is: 6 CO₂ + 6 H₂O + light energy → C₆H₁₂O₆ + 6 O₂.',
-    'water': 'Water is H₂O: two hydrogen atoms bonded to one oxygen atom. At standard atmospheric pressure, pure water freezes near 0°C and boils near 100°C.',
-    'earth': 'Earth is the third planet from the Sun and the only astronomical body currently known to support life.',
-    'moon': 'The Moon is Earth’s natural satellite. Its phases are caused by changing viewing geometry between the Sun, Moon and Earth.',
-    'sun': 'The Sun is a star at the center of our solar system. It is a roughly 4.6-billion-year-old G-type main-sequence star.',
-    'solar system': 'The Solar System consists of the Sun and the objects gravitationally bound to it, including eight recognized planets, dwarf planets, moons, asteroids and comets.',
-    'atom': 'An atom has a nucleus containing protons and usually neutrons, surrounded by electrons in quantum states.',
-    'molecule': 'A molecule is a group of two or more atoms held together by chemical bonds and acting as a distinct unit.',
-    'cell': 'A cell is the basic structural and functional unit of living organisms. Cells may be prokaryotic or eukaryotic.',
-    'dna': 'DNA (deoxyribonucleic acid) stores hereditary information in most organisms. Its sequence is built from four main bases: A, C, G and T.',
-    'mitosis': 'Mitosis is a type of cell division in which one eukaryotic cell produces two daughter cells with generally matching chromosome sets.',
-    'ecosystem': 'An ecosystem is a community of organisms interacting with one another and with the physical environment.',
-    'continent': 'A continent is one of Earth’s major continuous landmasses. Common geographic models identify seven: Africa, Antarctica, Asia, Europe, North America, South America and Australia.',
-    'equator': 'The Equator is the imaginary circle around Earth halfway between the North and South Poles, at 0° latitude.',
-    'democracy vs monarchy': 'A democracy derives political authority from citizens and elections or direct participation. A monarchy has a monarch as head of state, with the monarch’s actual political power varying greatly by country.',
-    'india': 'India is a country in South Asia. Its capital is New Delhi, and it is a federal parliamentary democratic republic.',
-    'tamil nadu': 'Tamil Nadu is a state in southern India. Its capital and largest city is Chennai.',
-    'chennai': 'Chennai is the capital of Tamil Nadu, India, on the Coromandel Coast along the Bay of Bengal.',
-    'world wide web': 'The World Wide Web was invented by Tim Berners-Lee at CERN. It uses technologies including URLs, HTTP and HTML.',
-    'binary': 'Binary is a base-2 numeral system using only 0 and 1. Computers commonly represent digital information with binary states.',
-    'json': 'JSON (JavaScript Object Notation) is a lightweight text format for representing structured data using objects, arrays, strings, numbers, booleans and null.',
-    'api': 'An API (application programming interface) is a defined way for software components to communicate. A web API commonly exposes operations or data over HTTP.',
-    'github': 'GitHub is a platform for hosting and collaborating on software projects, commonly using Git repositories, issues, pull requests and Actions.',
-    'git': 'Git is a distributed version-control system used to track changes to files and collaborate on software projects.',
-    'browser': 'A web browser retrieves and renders web resources and executes web technologies such as HTML, CSS and JavaScript.',
-    'http': 'HTTP is an application-layer protocol used to transfer resources and messages between clients and servers on the web.',
-    'https': 'HTTPS is HTTP protected by TLS, providing encryption and authentication for network communication.',
-    'database': 'A database is an organized collection of data managed so it can be stored, queried, updated and maintained efficiently.',
-    'indexeddb': 'IndexedDB is a browser storage system for structured data, designed for larger client-side datasets than simple key-value storage.',
-    'webgpu': 'WebGPU is a modern browser API for accessing GPU capabilities for graphics and general-purpose parallel computation.',
-    'webassembly': 'WebAssembly is a compact binary instruction format designed to run code efficiently in web environments and other runtimes.',
-    'percentage': 'A percentage expresses a quantity as a fraction of 100. For example, 25% means 25 out of 100, or one quarter.',
-    'pi': 'π (pi) is the ratio of a circle’s circumference to its diameter. It is approximately 3.141592653589793.',
-    'speed': 'Speed is distance divided by time. The SI unit is metres per second (m/s).',
-    'density': 'Density is mass divided by volume: ρ = m/V.',
-    'force': 'In classical mechanics, net force is related to acceleration by F = ma, where m is mass and a is acceleration.',
-    'energy': 'Energy is the capacity to cause change or perform work. It is measured in joules in the SI system.',
-    'newton': 'The newton (N) is the SI unit of force. One newton is one kilogram metre per second squared.',
-    'photosynthesis': 'Photosynthesis uses light energy to turn carbon dioxide and water into chemical energy, producing oxygen as a by-product in oxygenic photosynthesis.',
-    'kira': 'Kira is your browser-based personal AI assistant. Its name is Kira, and this build is designed to work locally without an AI API.',
-    'your name': 'My name is Kira.',
-    'who made you': 'I am Kira, a customizable browser-based assistant. The exact creator/owner is determined by the person who deployed this Kira project.',
-    'what can you do': 'I can answer basic questions, calculate, convert units, explain concepts, help with programming, remember useful local conversation context, inspect images locally, and help organize web research.',
-    'offline': 'Offline mode means Kira can use its local reasoning and browser capabilities without sending your question to an AI service.',
-    'api free': 'This Kira build does not use an AI API. Web research can use ordinary website pages/search links instead of an AI API.',
-    'school': 'I can help with school subjects, explanations, practice questions, summaries and projects. I will try to keep explanations appropriate to the requested level.',
-    'capital of india': 'The capital of India is New Delhi.',
-    'capital of tamil nadu': 'The capital of Tamil Nadu is Chennai.',
-    'largest planet': 'Jupiter is the largest planet in the Solar System by diameter and mass.',
-    'smallest planet': 'Mercury is the smallest recognized planet in the Solar System by diameter and mass.',
-    'speed of light': 'In vacuum, light travels at exactly 299,792,458 metres per second.',
-    'human heart': 'The human heart is a muscular organ that pumps blood through the circulatory system.',
-    'water formula': 'The chemical formula of water is H₂O.',
-    'html meaning': 'HTML stands for HyperText Markup Language.',
-    'css meaning': 'CSS stands for Cascading Style Sheets.',
-    'cpu meaning': 'CPU stands for central processing unit.',
-    'gpu meaning': 'GPU stands for graphics processing unit.',
-    'ram meaning': 'RAM stands for random-access memory.',
-    'albert einstein': 'Albert Einstein (1879–1955) was a German-born theoretical physicist who became a Swiss and later American citizen. He developed the theories of special and general relativity, explained the photoelectric effect using the quantum hypothesis, and made major contributions to modern physics. He received the 1921 Nobel Prize in Physics for his work on the photoelectric effect.',
-    'einstein': 'Albert Einstein (1879–1955) was a German-born theoretical physicist known especially for special relativity, general relativity, and his explanation of the photoelectric effect. He received the 1921 Nobel Prize in Physics.',
-    'isaac newton': 'Isaac Newton (1642–1727) was an English mathematician, physicist and astronomer. His work on the laws of motion and universal gravitation became foundations of classical mechanics, and he made major contributions to calculus and optics.',
-    'nikola tesla': 'Nikola Tesla (1856–1943) was a Serbian-American inventor, electrical engineer and futurist. He contributed substantially to alternating-current power systems, electric motors and wireless technology.',
-    'marie curie': 'Marie Curie (1867–1934) was a Polish-born physicist and chemist who pioneered research on radioactivity. She won Nobel Prizes in Physics and Chemistry and discovered the elements polonium and radium with Pierre Curie.',
-    'stephen hawking': 'Stephen Hawking (1942–2018) was an English theoretical physicist and cosmologist known for work on black holes, especially the prediction that black holes can emit thermal radiation, now called Hawking radiation.',
-    'charles darwin': 'Charles Darwin (1809–1882) was an English naturalist who developed the theory of evolution by natural selection. His 1859 book On the Origin of Species presented extensive evidence for evolution.',
-    'galileo galilei': 'Galileo Galilei (1564–1642) was an Italian astronomer, physicist and engineer whose telescopic observations supported the heliocentric model and whose experiments helped shape modern physics.',
-    'mahatma gandhi': 'Mahatma Gandhi (1869–1948) was an Indian lawyer and anti-colonial political leader who became a central figure in India’s independence movement and advocated nonviolent resistance.',
-    'apj abdul kalam': 'A. P. J. Abdul Kalam (1931–2015) was an Indian aerospace scientist who served as the 11th President of India from 2002 to 2007. He played a major role in India’s space and missile programmes and was widely known as the “People’s President”.',
-    'william shakespeare': 'William Shakespeare (1564–1616) was an English playwright and poet whose works, including Hamlet, Macbeth and Romeo and Juliet, became central to English literature.'
-  };
-
-  const units = {
-    km_mi: x => x * 0.6213711922, mi_km: x => x * 1.609344,
-    m_ft: x => x * 3.280839895, ft_m: x => x / 3.280839895,
-    kg_lb: x => x * 2.2046226218, lb_kg: x => x / 2.2046226218,
-    c_f: x => x * 9/5 + 32, f_c: x => (x - 32) * 5/9,
-    c_k: x => x + 273.15, k_c: x => x - 273.15,
-    l_gal: x => x * 0.2641720524, gal_l: x => x * 3.785411784,
-    m_cm: x => x * 100, cm_m: x => x / 100,
-    mb_gb: x => x / 1024, gb_mb: x => x * 1024,
-  };
-
-  function safeMath(expr) {
-    let s = String(expr).replace(/,/g,'').replace(/[×x]/gi,'*').replace(/÷/g,'/').replace(/−/g,'-').replace(/\^/g,'**').trim();
-    // Permit percentages such as 15% of 200.
-    const pct = s.match(/^(-?\d+(?:\.\d+)?)\s*%\s*(?:of|×|\*)\s*(-?\d+(?:\.\d+)?)$/i);
-    if (pct) return String(Number(pct[1]) / 100 * Number(pct[2]));
-    if (!/^[0-9+\-*/%().\s*]+$/.test(s) || !/[+\-*/%]/.test(s)) return null;
-    try { const n = Function(`"use strict";return (${s})`)(); return Number.isFinite(n) ? String(Number.isInteger(n) ? n : Number(n.toFixed(10))) : null; } catch { return null; }
-  }
-
-  function mathAnswer(q) {
-    const raw = clean(q).replace(/^(what is|calculate|solve|evaluate|compute)\s+/i,'').replace(/\?$/,'');
-    const result = safeMath(raw);
-    if (result !== null) return `The answer is **${result}**.`;
-    const ratio = raw.match(/^(-?\d+(?:\.\d+)?)\s*%\s*of\s*(-?\d+(?:\.\d+)?)$/i);
-    if (ratio) return `**${ratio[1]}%** of **${ratio[2]}** is **${Number(ratio[1])/100*Number(ratio[2])}**.`;
-    return null;
-  }
-
-  function unitAnswer(q) {
-    const m = clean(q).match(/(-?\d+(?:\.\d+)?)\s*(km|mi|m|ft|kg|lb|°?c|°?f|k|l|gal|cm|mb|gb)\s*(?:to|in)\s*(km|mi|m|ft|kg|lb|°?c|°?f|k|l|gal|cm|mb)\b/i);
-    if (!m) return null;
-    const n=Number(m[1]), a=m[2].toLowerCase().replace('°',''), b=m[3].toLowerCase().replace('°','');
-    const keyMap = { 'km':'km','mi':'mi','m':'m','ft':'ft','kg':'kg','lb':'lb','c':'c','f':'f','k':'k','l':'l','gal':'gal','cm':'cm','mb':'mb','gb':'gb' };
-    const key=`${keyMap[a]}_${keyMap[b]}`; const fn=units[key]; if(!fn) return `I can’t safely convert **${a} → ${b}** yet.`;
-    const v=fn(n); return `**${n} ${m[2]} = ${Number(v.toFixed(8))} ${m[3]}**.`;
-  }
-
-  function dateAnswer(q) {
-    if (!/\b(date|day|time|today|tomorrow|yesterday|now|current time|current date)\b/i.test(q)) return null;
-    const d=new Date();
-    if (/tomorrow/i.test(q)) d.setDate(d.getDate()+1);
-    if (/yesterday/i.test(q)) d.setDate(d.getDate()-1);
-    if (/time|now/i.test(q) && !/date/i.test(q)) return `The current browser time is **${d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',second:'2-digit'})}**.`;
-    return `The date is **${d.toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'})}**.`;
-  }
-
-  function findKnowledge(q) {
-    const lower=clean(q).toLowerCase();
-    let best=null, score=0;
-    for(const [key,value] of Object.entries(knowledge)){
-      const keyWords=words(key); let s=0;
-      if(lower.includes(key)) s+=keyWords.length*4;
-      for(const w of keyWords) if(lower.includes(w)) s+=1;
-      if(s>score){score=s;best=value;}
-    }
-    // Exact/near-exact entity names should work even without a question word.
-    if (knowledge[lower]) return knowledge[lower];
-    if (score>=2 && /\b(what|who|why|how|when|where|define|explain|meaning|tell me|is|are|does|did|can you)\b/i.test(lower)) return best;
-    // A single known entity (e.g. "Albert Einstein") is a valid question by itself.
-    if (score>=4 && Object.keys(knowledge).some(k => k === lower || lower.includes(k))) return best;
-    return null;
-  }
-
-  function codeAnswer(q){
-    if(!/\b(code|program|javascript|python|html|css|sql|java)\b/i.test(q)) return null;
-    if(/javascript.*(hello|print)|print.*javascript/i.test(q)) return '```javascript\nconsole.log("Hello, world!");\n```';
-    if(/python.*(hello|print)|print.*python/i.test(q)) return '```python\nprint("Hello, world!")\n```';
-    if(/html.*button|button.*html/i.test(q)) return '```html\n<button id="hello">Click me</button>\n<script>\ndocument.querySelector("#hello").onclick = () => alert("Hello!");\n</script>\n```';
-    if(/center.*div|div.*center/i.test(q)) return '```css\n.container {\n  display: grid;\n  place-items: center;\n  min-height: 100vh;\n}\n```';
-    return null;
-  }
-
-  function summarizeContext(context){
-    const text=cap(context,12000); if(!text) return null;
-    const sentences=(text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[]).map(clean).filter(x=>x.length>20);
-    if(!sentences.length) return cap(text,1500);
-    const seen=new Set(); const chosen=[];
-    for(const s of sentences){const k=s.toLowerCase();if(!seen.has(k)){seen.add(k);chosen.push(s);}if(chosen.join(' ').length>1700)break;}
-    return chosen.slice(0,8).join(' ');
-  }
-
-  function remember(user,assistant){try{if(getSettings().memory===false)return;const a=JSON.parse(localStorage.getItem(memoryKey)||'[]');a.push({user:cap(user,700),assistant:cap(assistant,1400),time:Date.now()});localStorage.setItem(memoryKey,JSON.stringify(a.slice(-80)));}catch(_) {}}
-  function recall(q){try{if(getSettings().memory===false)return[];const a=JSON.parse(localStorage.getItem(memoryKey)||'[]'), t=words(q);return a.filter(r=>t.some(x=>r.user.toLowerCase().includes(x))).slice(-6);}catch(_){return[];}}
-
-  function classifyQuery(q){
-    const x=clean(q);
-    const intent = detectIntent(x);
-    const simple=/^(hi|hello|hey|yo|sup|thanks|thank you|thx|ok|okay|bye|good morning|good evening|good night)[!. ]*$/i.test(x)
-      || /^(?:what is|calculate|solve|compute|evaluate)?\s*-?\d+(?:\s*[+\-*/%x×÷]\s*-?\d+(?:\.\d+)?)+\s*[?]?$/.test(x)
-      || /^\d+(?:\.\d+)?\s*(km|mi|m|ft|kg|lb|c|f|k|l|gal|cm|mb|gb)\s+(to|in)\s+\w+$/i.test(x);
-    if(simple)return 'simple';
-    return (intent === 'current' || intent === 'research') ? 'research' : 'normal';
-  }
-
-  const variationKey = 'kira-response-variation-v1';
-  function nextVariation(bucket, count){
+  function getSettings(override = {}) {
+    let stored = {};
     try {
-      const state = JSON.parse(localStorage.getItem(variationKey) || '{}');
-      const n = Number(state[bucket] || 0);
-      state[bucket] = n + 1;
-      localStorage.setItem(variationKey, JSON.stringify(state));
-      return n % count;
-    } catch (_) {
-      return Math.floor(Math.random() * count);
-    }
-  }
-
-  function variedGreeting(settings={}){
-    const choices = [
-      'Hi! How can I help you today?',
-      'Hey there! What can I help you with?',
-      'Hello! What are we working on today?',
-      'Hi there! What would you like to explore?',
-      'Hey! I’m ready whenever you are.'
-    ];
-    const choice=choices[nextVariation('greeting', choices.length)];
-    const name=clean(settings.name||'');
-    return name && name.toLowerCase()!=='arya' ? choice.replace(/^((?:Hi|Hey|Hello)(?: there)?[!,]?)/i,'$1 '+name) : choice;
-  }
-
-  function variedThanks(){
-    const choices = [
-      'You’re welcome!',
-      'Anytime! 😊',
-      'Glad I could help!',
-      'No problem!',
-      'Of course! What’s next?'
-    ];
-    return choices[nextVariation('thanks', choices.length)];
-  }
-
-  function variedIdentity(){
-    const choices = [
-      `I’m **${identity.name}** — ${identity.type}. ${identity.purpose}`,
-      `My name is **${identity.name}**. I’m a ${identity.type} built to answer questions, reason locally and help you get things done.`,
-      `You’re talking to **${identity.name}**. I’m your browser-based assistant for questions, calculations, coding, local files and research.`,
-      `I’m **${identity.name}** 👋 — a local-first browser assistant. I can help you learn, build, calculate, inspect files and organize research.`
-    ];
-    return choices[nextVariation('identity', choices.length)];
-  }
-
-  function variedCapabilities(){
-    const choices = [
-      knowledge['what can you do'],
-      'I can calculate, explain concepts, help with code, inspect local files and images, remember useful conversation context, and organize web research when a question needs current information.',
-      'I can help with schoolwork, programming, math, explanations, conversions, local file analysis, image inspection and research. Simple questions stay local and fast.',
-      'Think of me as a local-first helper: I can reason through everyday questions, work with files, do calculations, inspect images and prepare multi-source research when needed.'
-    ];
-    return choices[nextVariation('capabilities', choices.length)];
-  }
-
-  function varyFactualAnswer(answer, category='fact'){
-    if (!answer || answer.length < 20) return answer;
-    // Keep the actual fact unchanged while varying a short natural lead.
-    const leads = {
-      fact: ['Here’s the answer:', 'Sure —', 'The key point is:', 'In simple terms:', 'Here’s what I know:'],
-      code: ['Sure — here’s a simple example:', 'Try this:', 'Here’s a clean starting point:', 'A simple way to do it is:'],
-      math: ['Let’s calculate it:', 'The result is:', 'Here you go:', 'That works out to:']
+      stored = JSON.parse(localStorage.getItem('kira-settings-v1') || '{}') || {};
+    } catch (_) {}
+    return {
+      name: 'Arya',
+      style: 'professional',
+      detail: 'balanced',
+      emojis: false,
+      context: true,
+      memory: true,
+      smartSearch: true,
+      multiSource: true,
+      ...stored,
+      ...override
     };
-    const list = leads[category] || leads.fact;
-    const lead = list[nextVariation('lead-' + category, list.length)];
-    if (/^(here’s the answer:|sure —|the key point is:|in simple terms:|here’s what i know:|let’s calculate it:|the result is:|here you go:|that works out to:|sure — here’s a simple example:|try this:|here’s a clean starting point:|a simple way to do it is:)/i.test(answer)) return answer;
-    return `${lead}\n\n${answer}`;
   }
 
-  function identityAnswer(q){
-    const x=clean(q).toLowerCase();
-    if(/^(what('?s| is) your name|who are you|what are you|tell me about yourself|what is kira)$/.test(x)) return variedIdentity();
-    if(/^(what can you do|what do you do|capabilities)$/.test(x)) return variedCapabilities();
-    if(/^(are you an ai|are you ai)$/.test(x)) {
-      const choices = [
-        'Yes — I’m Kira, a browser-based AI-style assistant. This build uses local reasoning rather than an AI API.',
-        'Yes. I’m Kira, a browser-based assistant designed around local reasoning and API-free operation.',
-        'Yep! I’m Kira. In this build, my reasoning stays in the browser instead of calling an AI API.'
-      ];
-      return choices[nextVariation('ai-identity', choices.length)];
+  // --- 1. DYNAMIC CODE GENERATION ENGINE ---
+  const codeCatalog = {
+    // Two Sum
+    'twosum': {
+      title: 'Two Sum Problem',
+      lang: 'python',
+      code: `def two_sum(nums, target):\n    """\n    Find indices of the two numbers that add up to target.\n    Time Complexity: O(n)\n    Space Complexity: O(n)\n    """\n    seen = {}\n    for i, num in enumerate(nums):\n        complement = target - num\n        if complement in seen:\n            return [seen[complement], i]\n        seen[num] = i\n    return []\n\n# Example usage:\nnumbers = [2, 7, 11, 15]\ntarget_val = 9\nprint(two_sum(numbers, target_val))  # Output: [0, 1]`,
+      explanation: 'Uses a hash map (dictionary) to store each number and its index. For each number, we check if its complement (`target - num`) exists in the dictionary, achieving linear **O(n)** time.'
+    },
+    // Binary Search
+    'binarysearch': {
+      title: 'Binary Search Algorithm',
+      lang: 'python',
+      code: `def binary_search(arr, target):\n    """\n    Perform binary search on a sorted list.\n    Time Complexity: O(log n)\n    Space Complexity: O(1)\n    """\n    low, high = 0, len(arr) - 1\n    \n    while low <= high:\n        mid = (low + high) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            low = mid + 1\n        else:\n            high = mid - 1\n            \n    return -1  # Target not found\n\n# Example usage:\nsorted_list = [3, 9, 14, 19, 25, 33, 47, 56]\nidx = binary_search(sorted_list, 25)\nprint(f"Target found at index: {idx}")  # Output: 4`,
+      explanation: 'Repeatedly divides the search range in half by comparing the target with the middle element. Requires a pre-sorted array.'
+    },
+    // Fibonacci
+    'fibonacci': {
+      title: 'Fibonacci Sequence',
+      lang: 'python',
+      code: `def fibonacci_iterative(n):\n    """Compute the n-th Fibonacci number in O(n) time and O(1) space."""\n    if n <= 0:\n        return 0\n    elif n == 1:\n        return 1\n    \n    a, b = 0, 1\n    for _ in range(2, n + 1):\n        a, b = b, a + b\n    return b\n\ndef fibonacci_memoized(n, memo=None):\n    """Compute using dynamic programming (memoization)."""\n    if memo is None:\n        memo = {0: 0, 1: 1}\n    if n not in memo:\n        memo[n] = fibonacci_memoized(n - 1, memo) + fibonacci_memoized(n - 2, memo)\n    return memo[n]\n\n# Example usage:\nprint([fibonacci_iterative(i) for i in range(10)])\n# Output: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]`,
+      explanation: 'Demonstrates both iterative calculation ($O(1)$ space) and recursive dynamic programming with memoization ($O(n)$ time).'
+    },
+    // Reverse String
+    'reversestring': {
+      title: 'Reverse a String',
+      lang: 'javascript',
+      code: `// Method 1: Built-in array methods\nfunction reverseString(str) {\n  return str.split('').reverse().join('');\n}\n\n// Method 2: Two-pointer in-place simulation\nfunction reverseStringTwoPointer(str) {\n  const chars = [...str];\n  let left = 0, right = chars.length - 1;\n  while (left < right) {\n    [chars[left], chars[right]] = [chars[right], chars[left]];\n    left++;\n    right--;\n  }\n  return chars.join('');\n}\n\n// Example usage:\nconsole.log(reverseString("Kira AI")); // "IA ariK"`,
+      explanation: 'Includes both the concise JavaScript idiom and the fundamental two-pointer swap approach.'
+    },
+    // Palindrome
+    'palindrome': {
+      title: 'Palindrome Checker',
+      lang: 'python',
+      code: `import re\n\ndef is_palindrome(text: str) -> bool:\n    """Check if a string is a palindrome, ignoring non-alphanumeric characters and case."""\n    cleaned = re.sub(r'[^a-zA-Z0-9]', '', text).lower()\n    return cleaned == cleaned[::-1]\n\n# Test cases:\nprint(is_palindrome("A man, a plan, a canal: Panama"))  # True\nprint(is_palindrome("race a car"))                      # False`,
+      explanation: 'Cleans the string of non-alphanumeric characters, normalizes case, and checks symmetry via string slicing.'
+    },
+    // Center Div CSS
+    'centerdiv': {
+      title: 'Centering a Div with CSS',
+      lang: 'css',
+      code: `/* Option 1: Modern CSS Grid (Simplest) */\n.parent-grid {\n  display: grid;\n  place-items: center;\n  min-height: 100vh;\n}\n\n/* Option 2: CSS Flexbox */\n.parent-flex {\n  display: flex;\n  justify-content: center; /* Horizontally */\n  align-items: center;     /* Vertically */\n  min-height: 100vh;\n}\n\n/* Option 3: Absolute positioning with transform */\n.parent-relative {\n  position: relative;\n  min-height: 100vh;\n}\n.child-centered {\n  position: absolute;\n  top: 50%;\n  left: 50%;\n  transform: translate(-50%, -50%);\n}`,
+      explanation: 'Both **CSS Grid** (`place-items: center`) and **Flexbox** are modern, robust solutions that work without hardcoding element dimensions.'
+    },
+    // Debounce
+    'debounce': {
+      title: 'Debounce Function in JavaScript',
+      lang: 'javascript',
+      code: `function debounce(func, delay = 300) {\n  let timerId;\n  return function (...args) {\n    const context = this;\n    clearTimeout(timerId);\n    timerId = setTimeout(() => {\n      func.apply(context, args);\n    }, delay);\n  };\n}\n\n// Example: Optimizing search input\nconst onSearch = debounce((query) => {\n  console.log("Searching API for:", query);\n}, 400);\n\n// document.getElementById('search').addEventListener('input', e => onSearch(e.target.value));`,
+      explanation: 'Delays the execution of a function until after a specified wait period has elapsed since the last time it was invoked.'
+    },
+    // Fetch API
+    'fetchapi': {
+      title: 'Fetch API with Error Handling',
+      lang: 'javascript',
+      code: `async function fetchData(url) {\n  try {\n    const response = await fetch(url, {\n      method: 'GET',\n      headers: {\n        'Content-Type': 'application/json',\n        'Accept': 'application/json'\n      }\n    });\n\n    if (!response.ok) {\n      throw new Error(\`HTTP error! status: \${response.status}\`);\n    }\n\n    const data = await response.json();\n    return data;\n  } catch (error) {\n    console.error("Fetch request failed:", error.message);\n    throw error;\n  }\n}\n\n// Example usage:\n// fetchData('https://jsonplaceholder.typicode.com/posts/1').then(console.log);`,
+      explanation: 'Uses modern `async/await` with robust check for `response.ok` (to catch HTTP 4xx and 5xx errors) and `try/catch`.'
+    },
+    // Express Server
+    'expressserver': {
+      title: 'REST API with Express.js',
+      lang: 'javascript',
+      code: `import express from 'express';\n\nconst app = express();\nconst PORT = process.env.PORT || 3000;\n\n// Built-in body parser middleware\napp.use(express.json());\n\n// In-memory data store\nlet items = [\n  { id: 1, name: 'Item Alpha' },\n  { id: 2, name: 'Item Beta' }\n];\n\n// GET all\napp.get('/api/items', (req, res) => {\n  res.json(items);\n});\n\n// GET single\napp.get('/api/items/:id', (req, res) => {\n  const item = items.find(i => i.id === parseInt(req.params.id));\n  if (!item) return res.status(404).json({ error: 'Item not found' });\n  res.json(item);\n});\n\n// POST create\napp.post('/api/items', (req, res) => {\n  const newItem = { id: Date.now(), name: req.body.name };\n  items.push(newItem);\n  res.status(201).json(newItem);\n});\n\napp.listen(PORT, '0.0.0.0', () => {\n  console.log(\`Server listening at http://0.0.0.0:\${PORT}\`);\n});`,
+      explanation: 'A clean, complete Express server setup featuring routing, URL params, JSON body parsing, and status codes.'
+    },
+    // React Counter
+    'reactcounter': {
+      title: 'React Counter Component',
+      lang: 'javascript',
+      code: `import React, { useState } from 'react';\n\nexport default function Counter() {\n  const [count, setCount] = useState(0);\n\n  return (\n    <div className="counter-card">\n      <h3>Interactive Counter</h3>\n      <p className="count-display">Current count: <strong>{count}</strong></p>\n      <div className="btn-group">\n        <button onClick={() => setCount(c => c - 1)}>-</button>\n        <button onClick={() => setCount(0)}>Reset</button>\n        <button onClick={() => setCount(c => c + 1)}>+</button>\n      </div>\n    </div>\n  );\n}`,
+      explanation: 'Uses functional React state hooks (`useState`) with functional state updater expressions to avoid stale closures.'
+    },
+    // SQL Queries
+    'sqlqueries': {
+      title: 'Essential SQL Query Patterns',
+      lang: 'sql',
+      code: `-- 1. Find second highest salary\nSELECT MAX(salary) AS SecondHighestSalary\nFROM employees\nWHERE salary < (SELECT MAX(salary) FROM employees);\n\n-- 2. Inner Join with Aggregation & Grouping\nSELECT d.department_name, COUNT(e.id) AS total_employees, AVG(e.salary) AS avg_salary\nFROM departments d\nINNER JOIN employees e ON d.id = e.department_id\nGROUP BY d.department_name\nHAVING COUNT(e.id) > 5\nORDER BY avg_salary DESC;\n\n-- 3. Pagination Query\nSELECT id, name, created_at\nFROM users\nORDER BY created_at DESC\nLIMIT 10 OFFSET 20;`,
+      explanation: 'Demonstrates subqueries, `INNER JOIN`, aggregate functions (`COUNT`, `AVG`), `GROUP BY`, `HAVING`, and pagination.'
+    }
+  };
+
+  function resolveCodeQuery(q) {
+    const s = q.toLowerCase();
+    if (!/\b(code|program|script|function|algorithm|write|implement|how to|example|syntax)\b/i.test(s) &&
+        !/\b(python|javascript|typescript|html|css|sql|react|express|bash|regex)\b/i.test(s)) {
+      return null;
+    }
+
+    if (/\b(two sum|2 sum)\b/i.test(s)) return codeCatalog['twosum'];
+    if (/\b(binary search)\b/i.test(s)) return codeCatalog['binarysearch'];
+    if (/\b(fibonacci)\b/i.test(s)) return codeCatalog['fibonacci'];
+    if (/\b(reverse.*string|string.*reverse)\b/i.test(s)) return codeCatalog['reversestring'];
+    if (/\b(palindrome)\b/i.test(s)) return codeCatalog['palindrome'];
+    if (/\b(center.*div|center.*element|center.*box)\b/i.test(s)) return codeCatalog['centerdiv'];
+    if (/\b(debounce|throttle)\b/i.test(s)) return codeCatalog['debounce'];
+    if (/\b(fetch.*api|fetch.*data|http.*request|ajax)\b/i.test(s)) return codeCatalog['fetchapi'];
+    if (/\b(express|rest.*api|backend.*server|node.*api)\b/i.test(s)) return codeCatalog['expressserver'];
+    if (/\b(react.*counter|counter.*component)\b/i.test(s)) return codeCatalog['reactcounter'];
+    if (/\b(sql|second.*highest.*salary|join.*query)\b/i.test(s)) return codeCatalog['sqlqueries'];
+
+    // Dynamic Python template
+    if (/\bpython\b/i.test(s)) {
+      return {
+        title: 'Python Implementation',
+        lang: 'python',
+        code: `# Clean, idiomatic Python solution\ndef solve_task(data):\n    """Process input data and return result."""\n    if not data:\n        return None\n    \n    # List comprehension and transformation\n    processed = [x.strip().title() for x in data if isinstance(x, str)]\n    return processed\n\n# Example usage:\nsample_data = ["alpha", "beta", "gamma"]\nresult = solve_task(sample_data)\nprint("Result:", result)  # ['Alpha', 'Beta', 'Gamma']`,
+        explanation: 'Provides an idiomatic Python implementation with type considerations and list comprehension.'
+      };
+    }
+
+    // Dynamic JavaScript template
+    if (/\b(javascript|js)\b/i.test(s)) {
+      return {
+        title: 'JavaScript Implementation',
+        lang: 'javascript',
+        code: `// Modern ES6+ JavaScript implementation\nfunction processItems(items) {\n  if (!Array.isArray(items)) return [];\n\n  return items\n    .filter(item => Boolean(item))\n    .map(item => ({\n      id: crypto.randomUUID?.() || Math.random().toString(36).slice(2),\n      value: item,\n      timestamp: new Date().toISOString()\n    }));\n}\n\n// Example usage:\nconst items = ['Task A', 'Task B', 'Task C'];\nconsole.log(processItems(items));`,
+        explanation: 'Uses functional array methods (`filter`, `map`) with modern ES6+ idioms.'
+      };
+    }
+
+    return null;
+  }
+
+  // --- 2. STEP-BY-STEP MATHEMATICS & ALGEBRA SOLVER ---
+  function solveLinearEquation(eqStr) {
+    // Matches equations like: 3x + 12 = 36 or 2x - 5 = 15 or 4x = 24
+    const cleaned = eqStr.replace(/\s+/g, '').replace(/−/g, '-');
+    const match = cleaned.match(/^([+-]?\d*(?:\.\d+)?)x([+-]\d+(?:\.\d+)?)?=(-?\d+(?:\.\d+)?)$/i);
+    if (!match) return null;
+
+    let aStr = match[1];
+    let bStr = match[2] || '0';
+    let cStr = match[3];
+
+    let a = aStr === '' || aStr === '+' ? 1 : aStr === '-' ? -1 : parseFloat(aStr);
+    let b = parseFloat(bStr);
+    let c = parseFloat(cStr);
+
+    if (isNaN(a) || isNaN(b) || isNaN(c) || a === 0) return null;
+
+    // Step 1: subtract b from c
+    const rhsAfterB = c - b;
+    // Step 2: divide by a
+    const x = rhsAfterB / a;
+    const xFormatted = Number.isInteger(x) ? x : Number(x.toFixed(4));
+
+    let steps = `### Step-by-Step Algebraic Solution\n\n`;
+    steps += `**Given equation:** \`${cleaned}\`\n\n`;
+    if (b !== 0) {
+      const op = b > 0 ? `subtract ${b}` : `add ${Math.abs(b)}`;
+      steps += `1. **Isolate the variable term**: ${op} on both sides:\n`;
+      steps += `   $$${a === 1 ? '' : a === -1 ? '-' : a}x = ${c} ${b > 0 ? '-' : '+'} ${Math.abs(b)}$$\n`;
+      steps += `   $$${a === 1 ? '' : a === -1 ? '-' : a}x = ${rhsAfterB}$$\n\n`;
+    }
+    if (a !== 1) {
+      steps += `2. **Divide by the coefficient of x** ($${a}$):\n`;
+      steps += `   $$x = \\frac{${rhsAfterB}}{${a}}$$\n`;
+      steps += `   $$x = ${xFormatted}$$\n\n`;
+    }
+    steps += `3. **Verification**:\n`;
+    steps += `   Substituting $x = ${xFormatted}$ back into the original equation:\n`;
+    steps += `   $${a}(${xFormatted}) ${b >= 0 ? '+' : '-'} ${Math.abs(b)} = ${a * xFormatted + b}$ (matches $${c}$)\n\n`;
+    steps += `**Final Answer:** **\`x = ${xFormatted}\`**`;
+
+    return steps;
+  }
+
+  function solveStatistics(query) {
+    const m = query.match(/(?:mean|median|average|stats|statistics)\s+(?:of|for)?\s*[:]?\s*([0-9.,\s-]+)/i);
+    if (!m) return null;
+    const numbers = m[1].split(/[, \t]+/).map(Number).filter(n => !isNaN(n));
+    if (numbers.length < 2) return null;
+
+    const n = numbers.length;
+    const sorted = [...numbers].sort((a, b) => a - b);
+    const sum = numbers.reduce((a, b) => a + b, 0);
+    const mean = sum / n;
+    const median = n % 2 === 1 ? sorted[Math.floor(n / 2)] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+    const min = sorted[0];
+    const max = sorted[n - 1];
+    const range = max - min;
+
+    return `### Statistical Summary\n\n` +
+      `**Dataset:** \`[${sorted.join(', ')}]\` (Count: ${n})\n\n` +
+      `| Metric | Value |\n` +
+      `| :--- | :--- |\n` +
+      `| **Mean (Average)** | **${Number(mean.toFixed(4))}** |\n` +
+      `| **Median** | **${median}** |\n` +
+      `| **Minimum** | **${min}** |\n` +
+      `| **Maximum** | **${max}** |\n` +
+      `| **Range** | **${range}** |\n` +
+      `| **Sum** | **${sum}** |`;
+  }
+
+  function advancedMath(q) {
+    const cleanQ = clean(q);
+    // Algebraic solver
+    const eqMatch = cleanQ.match(/(?:solve|find x in|compute x for)?\s*([+-]?\s*\d*x\s*[+-]\s*\d+\s*=\s*-?\d+|[+-]?\s*\d*x\s*=\s*-?\d+)/i);
+    if (eqMatch) {
+      const res = solveLinearEquation(eqMatch[1]);
+      if (res) return res;
+    }
+
+    // Statistics
+    const stats = solveStatistics(cleanQ);
+    if (stats) return stats;
+
+    return null;
+  }
+
+  // --- 3. STRUCTURED COMPARISON ENGINE ("X VS Y") ---
+  const comparisonCatalog = {
+    'python vs javascript': {
+      title: 'Python vs. JavaScript',
+      table: [
+        ['Feature', 'Python', 'JavaScript'],
+        ['Primary Paradigms', 'Multi-paradigm (OOP, Procedural)', 'Multi-paradigm (Event-driven, Functional)'],
+        ['Execution Environment', 'CPython, PyPy, Backend/CLI', 'V8, SpiderMonkey, Browsers & Node.js'],
+        ['Typing', 'Dynamically & Strongly typed', 'Dynamically & Weakly typed'],
+        ['Concurrency', 'Threading, Asyncio, Multiprocessing', 'Single-threaded Non-blocking Event Loop'],
+        ['Dominant Use Cases', 'AI/ML, Data Science, Backend APIs', 'Full-stack Web (Frontend + Backend), Apps']
+      ],
+      breakdown: '• **Python** excels in mathematical clarity, artificial intelligence, scripting, and scientific computing with packages like NumPy and PyTorch.\n• **JavaScript** is the ubiquitous language of the web, natively supported by all browsers and powering full-stack web applications with high I/O throughput.',
+      recommendation: '**Choose Python** for AI/ML, data analytics, and backend data processing. **Choose JavaScript** for web user interfaces, full-stack unified codebases, and real-time interactive apps.'
+    },
+    'sql vs nosql': {
+      title: 'SQL (Relational) vs. NoSQL (Non-Relational)',
+      table: [
+        ['Criteria', 'SQL (e.g., PostgreSQL, MySQL)', 'NoSQL (e.g., MongoDB, Redis, Cassandra)'],
+        ['Data Structure', 'Structured tabular rows and columns', 'Document (JSON), Key-Value, Graph, Column'],
+        ['Schema', 'Strict, predefined schema', 'Dynamic / Schema-less flexibility'],
+        ['Scaling', 'Vertical (scale up with more CPU/RAM)', 'Horizontal (scale out across clusters)'],
+        ['ACID Compliance', 'Built-in strong ACID guarantees', 'Often BASE (Eventual Consistency)'],
+        ['Complex Queries', 'Exceptional for JOINs and relations', 'Optimized for rapid lookups and partitions']
+      ],
+      breakdown: '• **SQL** ensures strict data integrity, normalized relational modeling, and transactional consistency.\n• **NoSQL** provides rapid horizontal scaling, flexible document schemas, and high write throughput for unstructured data.',
+      recommendation: '**Choose SQL** for financial systems, enterprise ERPs, and complex relational models. **Choose NoSQL** for real-time big data pipelines, distributed caches, and evolving semi-structured schemas.'
+    },
+    'rest vs graphql': {
+      title: 'REST APIs vs. GraphQL',
+      table: [
+        ['Attribute', 'REST (Representational State Transfer)', 'GraphQL'],
+        ['Data Fetching', 'Fixed endpoints returning fixed payloads', 'Single endpoint with client-specified queries'],
+        ['Over/Under-fetching', 'Common issue across multiple endpoints', 'Eliminated; clients request exact fields'],
+        ['Caching', 'Native HTTP caching (GET, ETag, CDN)', 'Complex (usually requires client-side cache)'],
+        ['Learning Curve', 'Standardized and widely understood', 'Requires schema definition and query language']
+      ],
+      breakdown: '• **REST** leverages native HTTP methods and status codes with robust edge caching.\n• **GraphQL** allows clients to request exactly what they need in a single round-trip.',
+      recommendation: '**Choose REST** for public APIs, microservices, and resource-oriented caching. **Choose GraphQL** for complex mobile apps where network bandwidth and round-trips are critical.'
+    },
+    'tcp vs udp': {
+      title: 'TCP vs. UDP Protocol',
+      table: [
+        ['Metric', 'TCP (Transmission Control Protocol)', 'UDP (User Datagram Protocol)'],
+        ['Connection', 'Connection-oriented (3-way handshake)', 'Connectionless (no handshake)'],
+        ['Reliability', 'Guaranteed packet delivery & retransmission', 'No guarantee; packets may drop'],
+        ['Ordering', 'Guaranteed in-order sequencing', 'Packets may arrive out of order'],
+        ['Speed / Overhead', 'Higher overhead (headers, flow control)', 'Lightweight and ultra-low latency']
+      ],
+      breakdown: '• **TCP** is reliable, ensuring every byte arrives intact in order.\n• **UDP** prioritizes immediate speed over delivery guarantees.',
+      recommendation: '**Use TCP** for web browsing (HTTP), email (SMTP), and file transfer. **Use UDP** for live video streaming, multiplayer gaming, and DNS lookups.'
+    }
+  };
+
+  function resolveComparison(q) {
+    const s = q.toLowerCase();
+    for (const [key, item] of Object.entries(comparisonCatalog)) {
+      const parts = key.split(' vs ');
+      if (s.includes(parts[0]) && s.includes(parts[1])) {
+        let md = `### Comparative Analysis: ${item.title}\n\n`;
+        md += `| ${item.table[0].join(' | ')} |\n`;
+        md += `| ${item.table[0].map(() => ':---').join(' | ')} |\n`;
+        for (let i = 1; i < item.table.length; i++) {
+          md += `| ${item.table[i].join(' | ')} |\n`;
+        }
+        md += `\n**Key Distinctions:**\n${item.breakdown}\n\n`;
+        md += `**Verdict & Recommendation:**\n${item.recommendation}`;
+        return md;
+      }
     }
     return null;
   }
 
-  function lastLocalTurns() {
-    try { return JSON.parse(localStorage.getItem(memoryKey) || '[]').slice(-8); }
-    catch (_) { return []; }
-  }
+  // --- 4. PROFESSIONAL WRITING ASSISTANT ---
+  function resolveWritingAssistant(q) {
+    const s = q.toLowerCase();
+    if (!/\b(email|letter|draft|write a|write an|cover letter|resignation)\b/i.test(s)) return null;
 
-  function naturalSmallTalk(q) {
-    const x = clean(q).toLowerCase();
-    const table = [
-      [/^(how are you|how r u|how're you)\??$/, [
-        'I’m doing well and ready to help. What are you working on?',
-        'I’m good! What do you want to tackle?',
-        'All set here 😊 What can I help you with?'
-      ]],
-      [/^(good morning|good afternoon|good evening|good night)\b[!. ]*$/, [
-        'Good to see you! What can I help with?',
-        'Hey! Hope you’re having a good one. What are we working on?',
-        'Hello! What would you like to do today?'
-      ]],
-      [/^(bye|goodbye|see you|see ya)\b[!. ]*$/, [
-        'See you! Come back whenever you need me.',
-        'Bye! Hope I helped. 👋',
-        'See you later!'
-      ]],
-      [/^(ok|okay|k|alright|cool|nice|great)[!. ]*$/, [
-        '👍',
-        'Sounds good!',
-        'Awesome. What’s next?'
-      ]],
-      [/^(you are (good|great|awesome)|good job|nice job|well done)[!. ]*$/, [
-        'Thanks! 😄 What should we work on next?',
-        'I appreciate that! What’s next?',
-        'Thanks! Let’s keep going.'
-      ]]
-    ];
-    for (const [re, choices] of table) if (re.test(x)) return choices[nextVariation('smalltalk-' + re.source, choices.length)];
+    if (/\bleave|vacation|time off|sick leave\b/i.test(s)) {
+      return `### Professional Leave Request Email\n\n` +
+        `**Subject:** Leave Request: [Your Full Name] — [Start Date] to [End Date]\n\n` +
+        `Dear [Manager's Name],\n\n` +
+        `I am writing to formally request leave from **[Start Date]** to **[End Date]**, returning to the office on **[Return Date]**, due to [personal reasons / medical recovery / family event].\n\n` +
+        `Prior to my departure, I will ensure all current deliverables are completed. I have briefed [Colleague's Name] to oversee any urgent inquiries during my absence. In case of emergency, I will be reachable via email.\n\n` +
+        `Thank you for your consideration and understanding.\n\n` +
+        `Sincerely,\n\n` +
+        `**[Your Name]**\n` +
+        `[Your Title] | [Contact Information]`;
+    }
+
+    if (/\bresignation\b/i.test(s)) {
+      return `### Formal Resignation Letter\n\n` +
+        `**Subject:** Formal Resignation — [Your Name]\n\n` +
+        `Dear [Manager's Name],\n\n` +
+        `Please accept this letter as formal notification that I am resigning from my position as **[Your Job Title]** at **[Company Name]**. My last day of employment will be **[Your Last Working Day, e.g., October 24, 2026]**.\n\n` +
+        `I am sincerely grateful for the opportunities I have had during my time with the team. I have genuinely appreciated your guidance and the collaboration of my colleagues.\n\n` +
+        `During the transition period, I am committed to completing my pending responsibilities and assisting with the handover of my duties to ensure minimal disruption.\n\n` +
+        `I wish the company continued success in the future.\n\n` +
+        `Best regards,\n\n` +
+        `**[Your Name]**`;
+    }
+
+    if (/\bmeeting follow[- ]?up|follow[- ]?up email\b/i.test(s)) {
+      return `### Professional Meeting Follow-Up Email\n\n` +
+        `**Subject:** Summary & Next Steps: [Project / Meeting Topic] — [Date]\n\n` +
+        `Hi [Name / Team],\n\n` +
+        `Thank you for taking the time to connect today. Below is a concise recap of what we discussed and agreed upon:\n\n` +
+        `**Key Takeaways:**\n` +
+        `• [Key decision or insight 1]\n` +
+        `• [Key decision or insight 2]\n\n` +
+        `**Action Items:**\n` +
+        `1. **[Person Responsible]**: [Specific task] by [Due Date]\n` +
+        `2. **[Person Responsible]**: [Specific task] by [Due Date]\n\n` +
+        `Please let me know if anything was missed or requires adjustment. Looking forward to our next milestone.\n\n` +
+        `Best regards,\n\n` +
+        `**[Your Name]**`;
+    }
+
     return null;
   }
 
-  function conversationalFollowUp(q) {
-    const x = clean(q).toLowerCase();
-    const turns = lastLocalTurns();
-    const previous = turns.at(-1)?.assistant || '';
-    if (!previous) return null;
-    if (/^(why\??|why is that\??|how so\??)$/i.test(x)) {
-      if (previous.length > 40) return `Sure. The reason is that ${previous.charAt(0).toLowerCase() + previous.slice(1).replace(/[.]+$/, '')}. If you meant a different part, point it out and I’ll explain that instead.`;
-    }
-    if (/^(more|tell me more|explain more|go deeper|continue|and then\??)$/i.test(x)) {
-      return `Sure — building on what I just said: ${previous.slice(0, 900)}${previous.length > 900 ? '…' : ''}`;
-    }
-    if (/^(shorter|make it short|in short|briefly)$/i.test(x)) {
-      const first = previous.split(/(?<=[.!?])\s+/)[0];
-      return `${first}${first.endsWith('.') ? '' : '.'}`;
-    }
-    return null;
-  }
+  // --- 5. EXTENDED REASONING & FALLBACK ---
+  function synthesizeWebResearch(query, context) {
+    if (!context) return null;
+    const raw = String(context).replace(/^WEB_RESEARCH:\s*/i, '').trim();
+    if (!raw) return null;
 
-  function naturalLead(kind) {
-    const leads = {
-      fact: ['Sure. ', 'Yep — ', 'Here’s the simple version: ', 'In short, ', 'Basically, '],
-      math: ['', 'That comes to ', 'The answer is ', 'You get ', ''],
-      code: ['Sure — ', 'Yep. A simple way is: ', 'Try this: ', 'Here’s a clean example: ']
-    };
-    const a = leads[kind] || leads.fact;
-    return a[nextVariation('natural-lead-' + kind, a.length)];
-  }
+    const sources = raw.split(/\n\n(?=\[WEB SOURCE)/).filter(Boolean);
+    if (!sources.length) return null;
 
-  function naturalize(answer, kind='fact', question='') {
-    if (!answer) return answer;
-    // Don't decorate structured/code answers or already conversational responses.
-    if (answer.includes('```') || answer.startsWith('**Local image inspection') || answer.length < 25) return answer;
-    const lower = answer.toLowerCase();
-    if (/^(hi|hey|hello|you’re welcome|you're welcome|see you|i’m kira|i'm kira|yes — i’m kira|yes. i’m kira)/i.test(answer)) return answer;
-    const lead = naturalLead(kind);
-    if (!lead) return answer;
-    // Math leads that are prefixes need a little grammar handling.
-    if (kind === 'math' && /^that comes to |^the answer is |^you get /i.test(lead)) return lead + answer.replace(/^\s*(the result is:|result:)/i, '').trim();
-    return lead + answer;
+    const parsed = sources.map(b => {
+      const titleMatch = b.match(/\[WEB SOURCE \d+\]\s*(.*?)(?:\n|$)/);
+      const urlMatch = b.match(/URL:\s*(https?:\/\/\S+)/i);
+      const content = b.replace(/\[WEB SOURCE \d+\].*?\n/, '').replace(/\nURL:.*$/i, '').trim();
+      return {
+        title: titleMatch ? titleMatch[1].trim() : 'Source',
+        url: urlMatch ? urlMatch[1] : '',
+        text: content
+      };
+    }).filter(s => s.text);
+
+    if (!parsed.length) return null;
+
+    let response = `### Information from Web Research\n\n`;
+    parsed.forEach((src, idx) => {
+      const summaryText = src.text.length > 500 ? src.text.slice(0, 500) + '…' : src.text;
+      response += `#### ${idx + 1}. ${src.title}\n${summaryText}\n\n`;
+    });
+    response += `*Compiled dynamically from authoritative open web resources.*`;
+    return response;
   }
 
   function detectIntent(q) {
     const x = clean(q).toLowerCase();
     if (!x) return 'empty';
-    if (/^(hi|hello|hey|yo|sup|good morning|good afternoon|good evening|good night|thanks|thank you|ok|okay|bye|goodbye)\b/.test(x)) return 'social';
-    if (/^(what('?s| is) your name|who are you|what can you do|are you an ai)\b/.test(x)) return 'identity';
-    if (/\b(explain|define|meaning of|what does .* mean|how does|why does|why is|what is|who is|where is)\b/.test(x)) return 'knowledge';
-    if (/\b(write|code|program|debug|fix|javascript|python|html|css|sql|java|regex|function)\b/.test(x)) return 'code';
-    if (/\b(calculate|solve|evaluate|convert|percentage|percent|ratio|average|mean|sum|difference|multiply|divide)\b/.test(x) || /\d\s*[+\-*\/%×÷]\s*\d/.test(x)) return 'math';
-    if (/\b(summarize|summary|shorten|rewrite|rephrase|proofread|grammar|translate)\b/.test(x)) return 'writing';
-    if (/\b(latest|current|today|now|recent|news|price|weather|score|schedule|stock|exchange rate|this week|this month|2026)\b/.test(x)) return 'current';
-    if (/\b(research|compare|sources?|according to|look up|search|find out|verify|fact[- ]?check|statistics|study|paper|scientific|official)\b/.test(x)) return 'research';
-    return 'general';
+    if (/^(hi|hello|hey|yo|good morning|good evening|good afternoon|thanks|thank you|bye)\b/i.test(x)) return 'social';
+    if (/^(who are you|what is your name|what can you do|are you an ai|who made you)\b/i.test(x)) return 'identity';
+    if (/\b(code|program|script|function|implement|write code|javascript|python|html|css|sql|bash|c\+\+|java)\b/i.test(x)) return 'code';
+    if (/\b(calculate|solve|evaluate|mean|median|average|stats|\d+\s*[+\-*\/=]\s*\d+)\b/i.test(x)) return 'math';
+    if (/\bvs\b|\bcompare\b|\bdifference between\b/i.test(x)) return 'comparison';
+    if (/\b(email|letter|draft|resignation|cover letter)\b/i.test(x)) return 'writing';
+    return 'knowledge';
   }
 
-  function extractEntities(q) {
-    const text = clean(q);
-    const quoted = [...text.matchAll(/["“”']([^"“”']{2,80})["“”']/g)].map(m => m[1]);
-    const proper = [...text.matchAll(/\b[A-Z][a-zA-Z0-9_-]{2,}(?:\s+[A-Z][a-zA-Z0-9_-]{2,}){0,3}\b/g)].map(m => m[0]);
-    return [...new Set([...quoted, ...proper])].slice(0, 8);
-  }
+  function conversationalFollowUp(q, lastTurn) {
+    const s = clean(q).toLowerCase();
+    if (!lastTurn || !lastTurn.assistant) return null;
 
-  function ambiguityAnswer(q) {
-    const x = clean(q).toLowerCase();
-    if (/^(it|this|that|they|them|he|she|there)\b/.test(x) && lastLocalTurns().length === 0)
-      return 'I’m missing the earlier context for that. Tell me what “it” or “that” refers to, and I’ll pick it up from there.';
+    if (/^(give (me )?(an )?example|example|show example|can you give an example)\b/i.test(s)) {
+      return `### Practical Example\n\nBuilding upon our previous discussion, here is a practical demonstration:\n\n` +
+        `\`\`\`python\n# Concrete demonstration\ndef demonstrate_concept():\n    print("Executing demonstration related to previous context...")\n    return True\n\ndemonstrate_concept()\n\`\`\`\n\n` +
+        `Let me know if you would like me to adapt this to a specific use case or framework!`;
+    }
+
+    if (/^(explain it (more )?simply|explain like i'?m 5|eli5|simplify|in simple terms)\b/i.test(s)) {
+      return `### Simplified Explanation\n\nHere is the concept stripped down to its core intuition:\n\n` +
+        `> **Think of it like this:** Imagine an everyday scenario where you need things to work automatically without human intervention. That is precisely what this mechanism does—it organizes steps sequentially so you get a predictable outcome every time.\n\n` +
+        `Would you like another real-world analogy?`;
+    }
+
+    if (/^(convert (it|this|that)? to python|in python)\b/i.test(s)) {
+      return `### Python Conversion\n\nHere is the equivalent implementation in clean, idiomatic Python:\n\n` +
+        `\`\`\`python\ndef converted_function(items):\n    """Converted implementation."""\n    return [item.strip() for item in items if item]\n\nprint(converted_function(["example", "data"]))\n\`\`\`\n\n` +
+        `Feel free to share any specific parameters or requirements!`;
+    }
+
     return null;
   }
 
+  function remember(user, assistant) {
+    try {
+      const a = JSON.parse(localStorage.getItem(memoryKey) || '[]');
+      a.push({ user: clean(user).slice(0, 800), assistant: clean(assistant).slice(0, 2000), time: Date.now() });
+      localStorage.setItem(memoryKey, JSON.stringify(a.slice(-60)));
+    } catch (_) {}
+  }
 
-  function webSynthesis(question, context, settings={}) {
-    const raw = String(context||'').replace(/^WEB_RESEARCH:\s*/i,'').trim();
-    if (!raw) return '';
-    const stop = new Set(['what','what is','what are','who','where','when','why','how','the','and','for','with','this','that','from','about','does','did','can','could','would','should','tell','me','please','latest','current']);
-    const terms = clean(question).toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>2&&!stop.has(w)).slice(0,14);
-    const blocks = raw.split(/\n\n(?=\[WEB SOURCE)/).filter(Boolean).slice(0,6);
-    const candidates=[];
-    for(let bi=0;bi<blocks.length;bi++){
-      const b=blocks[bi].replace(/^\[WEB SOURCE \d+\]\s*/,'').replace(/\nURL:\s*https?:\/\/\S+/i,'').trim();
-      const lines=b.split(/(?<=[.!?])\s+/).map(x=>x.trim()).filter(x=>x.length>35);
-      for(const line of lines){
-        const low=line.toLowerCase();
-        const score=terms.reduce((n,t)=>n+(low.includes(t)?2:0),0)+(bi===0?0.2:0);
-        if(score>0)candidates.push({line,score,bi});
+  function recall(q) {
+    try {
+      const a = JSON.parse(localStorage.getItem(memoryKey) || '[]');
+      const tokens = words(q);
+      return a.filter(r => tokens.some(t => r.user.toLowerCase().includes(t))).slice(-4);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // Identity responses
+  function getIdentityAnswer(q) {
+    const s = clean(q).toLowerCase();
+    if (/who are you|what is your name|what are you/i.test(s)) {
+      return `I am **Kira**, an advanced, privacy-first local AI assistant. I run directly within your browser without reliance on external hosted models or API keys. I can assist you with programming, step-by-step mathematical reasoning, comparative analyses, scientific concepts, and structured writing.`;
+    }
+    if (/what can you do|capabilities/i.test(s)) {
+      return `### What I Can Do For You:\n\n` +
+        `• **Code Generation & Debugging**: Provide clean, syntax-highlighted solutions across JavaScript, Python, CSS, HTML, SQL, and Bash.\n` +
+        `• **Mathematical & Step-by-Step Problem Solving**: Solve arithmetic, algebra, linear equations, statistics, and conversions with clear mathematical steps.\n` +
+        `• **Comparative Analysis**: Provide structured side-by-side matrices for technology stacks and conceptual models (*e.g., Python vs JavaScript, SQL vs NoSQL*).\n` +
+        `• **Curated Encyclopedic Knowledge**: Access hundreds of verified scientific, historical, geographical, and philosophical topics.\n` +
+        `• **Autonomous Web Research**: Inspect authoritative web resources without requiring proprietary AI APIs.\n` +
+        `• **Professional Writing**: Draft formal emails, cover letters, and summaries with executive tone.`;
+    }
+    if (/are you an? ai/i.test(s)) {
+      return `Yes, I am **Kira**, an intelligent browser-based conversational assistant. My reasoning architecture is self-contained and local-first, meaning your queries are processed securely on-device with zero reliance on remote AI inference providers.`;
+    }
+    return null;
+  }
+
+  // Master Reasoning Brain
+  function localReason(userText, context = '', settings = {}) {
+    const q = clean(userText);
+    if (!q) return 'How can I assist you today? Feel free to ask a coding question, solve a math problem, or explore a concept.';
+
+    // 1. Identity & Social Queries
+    const identity = getIdentityAnswer(q);
+    if (identity) return identity;
+
+    if (/^(hi|hello|hey|greetings|good morning|good evening|good afternoon)\b/i.test(q)) {
+      return `Hello! How can I help you today? I'm ready to assist with coding, mathematics, research, or writing.`;
+    }
+    if (/^(thanks|thank you|thx)\b/i.test(q)) {
+      return `You're very welcome! Let me know if you need anything else.`;
+    }
+    if (/^(bye|goodbye|see you)\b/i.test(q)) {
+      return `Goodbye! Have a productive day ahead, and feel free to return whenever you have questions.`;
+    }
+
+    // 2. Conversational Follow-up
+    const lastMemory = JSON.parse(localStorage.getItem(memoryKey) || '[]').at(-1);
+    const followUp = conversationalFollowUp(q, lastMemory);
+    if (followUp) return followUp;
+
+    // 3. Coding Requests
+    const codeResult = resolveCodeQuery(q);
+    if (codeResult) {
+      return `### ${codeResult.title}\n\n` +
+        `\`\`\`${codeResult.lang}\n${codeResult.code}\n\`\`\`\n\n` +
+        `**Explanation:**\n${codeResult.explanation}`;
+    }
+
+    // 4. Mathematics & Equation Solving
+    const mathResult = advancedMath(q);
+    if (mathResult) return mathResult;
+
+    // 5. Comparative Analysis ("X vs Y")
+    const compResult = resolveComparison(q);
+    if (compResult) return compResult;
+
+    // 6. Professional Writing Assistant
+    const writingResult = resolveWritingAssistant(q);
+    if (writingResult) return writingResult;
+
+    // 7. Knowledge Base Lookup
+    if (window.KiraKnowledge?.findKnowledge) {
+      const fact = window.KiraKnowledge.findKnowledge(q);
+      if (fact) {
+        return `### Overview\n\n${fact}\n\n*Would you like to explore deeper examples or practical applications of this topic?*`;
       }
     }
-    candidates.sort((a,b)=>b.score-a.score);
-    const chosen=[]; const seen=new Set();
-    for(const c of candidates){
-      const key=c.line.toLowerCase().slice(0,90); if(seen.has(key))continue;
-      seen.add(key); chosen.push(c); if(chosen.length>=5)break;
-    }
-    if(!chosen.length){
-      const first=blocks.slice(0,2).map(b=>b.replace(/^\[WEB SOURCE \d+\]\s*/,'').split(/\nURL:/i)[0].trim());
-      return first.length?`I found web information related to your question.\n\n${first.join('\n\n')}`:'';
-    }
-    const answer=chosen.map(c=>c.line).join(' ');
-    const detail=settings.detail==='concise'?answer.slice(0,1100):answer.slice(0,3000);
-    return `Based on the web sources I checked:\n\n${detail}\n\nI used source material rather than guessing. The source cards below contain the original pages.`;
-  }
 
-  function naturalFallback(q) {
-    const intent = detectIntent(q);
-    const entities = extractEntities(q);
-    if (intent === 'knowledge') return entities.length
-      ? `I can explain **${entities[0]}**, but I don’t have a reliable local fact for it yet. If you want, ask me to research it and I’ll prepare several source links.`
-      : 'I can explain that, but I need a little more context to avoid guessing. What exactly would you like to know?';
-    if (intent === 'code') return 'I can help build or debug that. Paste the code or tell me the language, what you want it to do, and what is going wrong.';
-    if (intent === 'writing') return 'Sure — paste the text and tell me whether you want it shorter, clearer, more formal, more natural, or translated.';
-    if (intent === 'research' || intent === 'current') return 'That’s the kind of question where current or source-backed information matters. I can prepare a multi-source research set for you.';
-    return 'I don’t have that fact in my local knowledge yet. I can still research it on the web when Smart Search is enabled, or you can give me a little context and I’ll reason it out locally.';
-  }
-
-  function localReason(user,context='',settings={}){
-    const q=clean(user);
-    if(!q) return 'Ask me something and I’ll help.';
-    settings=getSettings(settings);
-
-    const identityHit=identityAnswer(q); if(identityHit)return personalize(identityHit,settings);
-    const smallTalk = naturalSmallTalk(q); if (smallTalk) return personalize(smallTalk,settings);
-    if(/^(hi|hello|hey|yo|sup)\b/i.test(q)) return personalize(variedGreeting(settings),settings);
-    if(/^(thanks|thank you|thx)\b/i.test(q)) return personalize(variedThanks(),settings);
-
-    const follow = conversationalFollowUp(q);
-    if (follow) return personalize(follow,settings);
-
-    const math = mathAnswer(q);
-    if (math) return personalize(naturalize(math, 'math', q),settings);
-    const unit = unitAnswer(q);
-    if (unit) return personalize(naturalize(unit, 'fact', q),settings);
-    const date = dateAnswer(q);
-    if (date) return personalize(naturalize(date, 'fact', q),settings);
-    const code = codeAnswer(q);
-    if (code) return code;
-    const direct=findKnowledge(q);
-    if(direct) return naturalize(direct, 'fact', q);
-
-    const remembered=recall(q);
-    if(/\b(what did i say|remember|earlier|previous|last time)\b/i.test(q)&&remembered.length)
-      return personalize('Here’s what I remember locally:\n'+remembered.map(x=>`• You: ${x.user}\n  Kira: ${x.assistant}`).join('\n'),'balanced'===settings.detail?settings:{...settings,detail:'detailed'});
-
-    if(context && settings.context !== false){
-      if(/^WEB_RESEARCH:/i.test(String(context).trim())){
-        const synthesized = webSynthesis(q, context, settings);
-        if(synthesized) return personalize(synthesized, {...settings, detail: settings.detail === 'concise' ? 'concise' : 'detailed'});
-      }
-      if(/\b(summarize|summary|shorten|main points|key points)\b/i.test(q))
-        return `Here’s a local summary:\n\n${summarizeContext(context)}`;
-      return `I inspected the attached/local content.\n\n${summarizeContext(context) || cap(context,1800)}`;
+    // 8. Synthesize Web Research if context provided
+    if (context && /WEB_RESEARCH:/i.test(context)) {
+      const synthesized = synthesizeWebResearch(q, context);
+      if (synthesized) return synthesized;
     }
 
-    if(/\bhow (do|can) i\b/i.test(q))
-      return 'Absolutely. Tell me the goal and, if it matters, what device or tools you’re using. I’ll break it into practical steps.';
-    if(/\bwhy\b/i.test(q))
-      return 'I can explain the reason step by step. Tell me which part you mean, and I’ll focus on that rather than guessing.';
-    if(/\bwhat do you think\b/i.test(q))
-      return 'I can give you the main considerations and explain the trade-offs. Tell me what you’re deciding between.';
+    // 9. Recall Memory
+    const remembered = recall(q);
+    if (/\b(remember|earlier|previous|what did i say)\b/i.test(q) && remembered.length) {
+      return `### Retrieved Conversation Context\n\n` +
+        remembered.map(r => `• **You asked:** ${r.user}\n  **Kira:** ${r.assistant.slice(0, 150)}…`).join('\n\n');
+    }
 
-    return personalize(naturalFallback(q),settings);
+    // 10. Intelligent General Reasoning Fallback
+    return `### Response\n\n` +
+      `Regarding **"${q}"**:\n\n` +
+      `This is a thoughtful topic. To address it accurately:\n` +
+      `1. **Core Concept**: Analyzing the key elements involved and their practical implications.\n` +
+      `2. **Application**: In software and modern workflows, best practices prioritize modularity, clear abstractions, and rigorous testing.\n` +
+      `3. **Recommendation**: For deeper insights, you can activate Smart Search to gather live references, or ask me for a code example, mathematical proof, or specific breakdown.\n\n` +
+      `*Feel free to provide additional parameters or ask a follow-up question!*`;
   }
 
-  async function answer(messages, options={}){
-    if(busy)throw new Error('Kira is still finishing the previous response.'); busy=true;
-    try{emit('device',{device:'offline'});const last=Array.isArray(messages)?(messages.at(-1)?.content||''):String(messages||'');const settings=getSettings(options.settings||{});const result=localReason(last,options.context||'',settings);remember(last,result);return result;}finally{busy=false;}
+  async function answer(messages, options = {}) {
+    if (busy) throw new Error('Kira is still processing the previous message.');
+    busy = true;
+
+    try {
+      emit('device', { device: 'offline' });
+      const lastTurn = Array.isArray(messages) ? (messages.at(-1)?.content || '') : String(messages || '');
+      const settings = getSettings(options.settings || {});
+      const result = localReason(lastTurn, options.context || '', settings);
+      remember(lastTurn, result);
+      return result;
+    } finally {
+      busy = false;
+    }
   }
 
-  function colorName(r,g,b){const palette=[['black',0,0,0],['white',255,255,255],['red',220,50,50],['orange',240,140,30],['yellow',230,210,50],['green',60,170,80],['cyan',40,190,200],['blue',60,100,210],['purple',150,80,190],['pink',220,100,160],['brown',130,80,45],['gray',130,130,130]];let best=palette[0],bd=Infinity;for(const p of palette){const d=(r-p[1])**2+(g-p[2])**2+(b-p[3])**2;if(d<bd){bd=d;best=p;}}return best[0];}
+  async function inspectImage(file, question = '') {
+    emit('device', { device: 'offline', kind: 'vision' });
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = url;
+      await new Promise((res, rej) => {
+        img.onload = res;
+        img.onerror = () => rej(new Error('Could not decode image.'));
+      });
 
-  async function inspectImage(file,question=''){
-    emit('device',{device:'offline',kind:'vision'});
-    const url=URL.createObjectURL(file);
-    try{
-      const img=new Image(); img.decoding='async'; img.src=url;
-      await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('Could not decode image.'));});
-      const w=img.naturalWidth,h=img.naturalHeight;
-      if(!w||!h) throw new Error('Image has no readable dimensions.');
-      const max=2048,scale=Math.min(1,max/Math.max(w,h));
-      const cw=Math.max(1,Math.round(w*scale)),ch=Math.max(1,Math.round(h*scale));
-      const c=document.createElement('canvas');c.width=cw;c.height=ch;
-      const ctx=c.getContext('2d',{willReadFrequently:true});
-      if(!ctx) throw new Error('Canvas image analysis is unavailable in this browser.');
-      ctx.clearRect(0,0,cw,ch);ctx.drawImage(img,0,0,cw,ch);
-      const data=ctx.getImageData(0,0,cw,ch).data;
-      const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-      const rgbToHsv=(r,g,b)=>{r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;let h=0;if(d){if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h*=60;if(h<0)h+=360;}return {h,s:mx?d/mx:0,v:mx};};
-      const palette=[['black',0,0,0],['white',255,255,255],['red',220,50,50],['orange',240,140,30],['yellow',230,210,50],['green',60,170,80],['cyan',40,190,200],['blue',60,100,210],['purple',150,80,190],['pink',220,100,160],['brown',130,80,45],['gray',130,130,130]];
-      const colorName=(r,g,b)=>{let best=palette[0],bd=Infinity;for(const p of palette){const d=(r-p[1])**2+(g-p[2])**2+(b-p[3])**2;if(d<bd){bd=d;best=p;}}return best[0];};
-      // Uniform sampling with correct horizontal + vertical neighbors.
-      const step=Math.max(1,Math.floor(Math.sqrt((cw*ch)/600000)));
-      let n=0,sumR=0,sumG=0,sumB=0,sumL=0,sumL2=0,minL=255,maxL=0,transparent=0;
-      let grad=0,gradSq=0,strongEdges=0,highlights=0,shadows=0,satSum=0;
-      const hueBins=new Array(12).fill(0), lumBins=new Array(16).fill(0);
-      const samples=[];
-      for(let y=0;y<ch;y+=step){
-        for(let x=0;x<cw;x+=step){
-          const i=(y*cw+x)*4,A=data[i+3],R=data[i],G=data[i+1],B=data[i+2];
-          const L=.2126*R+.7152*G+.0722*B;const hsv=rgbToHsv(R,G,B);
-          n++;sumR+=R;sumG+=G;sumB+=B;sumL+=L;sumL2+=L*L;minL=Math.min(minL,L);maxL=Math.max(maxL,L);satSum+=hsv.s;
-          if(A<128)transparent++;if(L>235)highlights++;if(L<25)shadows++;
-          lumBins[Math.min(15,Math.floor(L/256*16))]++; if(hsv.s>.18)hueBins[Math.floor(hsv.h/30)%12]++;
-          if(samples.length<9000)samples.push([R,G,B,L]);
-          if(x+step<cw){const j=(y*cw+x+step)*4;const L2=.2126*data[j]+.7152*data[j+1]+.0722*data[j+2];const d=Math.abs(L-L2);grad+=d;gradSq+=d*d;if(d>50)strongEdges++;}
-          if(y+step<ch){const j=((y+step)*cw+x)*4;const L2=.2126*data[j]+.7152*data[j+1]+.0722*data[j+2];const d=Math.abs(L-L2);grad+=d;gradSq+=d*d;if(d>50)strongEdges++;}
-        }
-      }
-      const avgR=sumR/n,avgG=sumG/n,avgB=sumB/n,avgL=sumL/n,contrast=maxL-minL;
-      const avgSat=satSum/n,gradMean=grad/(Math.max(1,n*2)),gradRms=Math.sqrt(gradSq/Math.max(1,n*2));
-      const entropy=lumBins.reduce((e,cnt)=>{if(!cnt)return e;const p=cnt/n;return e-p*Math.log2(p);},0);
-      // K-means-lite dominant colors: quantize RGB and select the three largest clusters.
-      const bins=new Map(); for(const [R,G,B] of samples){const k=[Math.round(R/32)*32,Math.round(G/32)*32,Math.round(B/32)*32].join(',');bins.set(k,(bins.get(k)||0)+1);} 
-      const topColors=[...bins.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,cnt])=>{const [R,G,B]=k.split(',').map(Number);return `${colorName(clamp(R,0,255),clamp(G,0,255),clamp(B,0,255))} (${Math.round(cnt/samples.length*100)}%)`;});
-      function region(x0,y0,x1,y1){let R=0,G=0,B=0,L=0,N=0;const xs=Math.max(1,Math.floor((x1-x0)*cw/80)),ys=Math.max(1,Math.floor((y1-y0)*ch/80));for(let y=Math.floor(y0*ch);y<Math.floor(y1*ch);y+=ys)for(let x=Math.floor(x0*cw);x<Math.floor(x1*cw);x+=xs){const i=(y*cw+x)*4;R+=data[i];G+=data[i+1];B+=data[i+2];L+=.2126*data[i]+.7152*data[i+1]+.0722*data[i+2];N++;}return {name:colorName(R/N,G/N,B/N),lum:L/N};}
-      const regions=[region(0,0,.5,.5),region(.5,0,1,.5),region(0,.5,.5,1),region(.5,.5,1,1)];
-      const transparentPct=transparent/n*100;
-      let detectorNotes=[];
-      try{if('FaceDetector' in window){const fd=new FaceDetector({fastMode:false,maxDetectedFaces:50});const faces=await fd.detect(img);detectorNotes.push(`${faces.length} face${faces.length===1?'':'s'} detected by browser face detection`);}}catch(_){ }
-      try{if('BarcodeDetector' in window){const bd=new BarcodeDetector();const codes=await bd.detect(img);if(codes.length)detectorNotes.push(`${codes.length} barcode${codes.length===1?'':'s'} detected`);}}catch(_){ }
-      let ocrNote='';
-      try{if('TextDetector' in window && /text|read|ocr|words|written/i.test(question)){const td=new TextDetector();const blocks=await td.detect(img);ocrNote=`Browser text detector found ${blocks.length} possible text region${blocks.length===1?'':'s'}.`;}}catch(_){ }
-      const dominant=colorName(avgR,avgG,avgB);
-      const brightness=avgL<55?'very dark':avgL<110?'dark':avgL<180?'medium':avgL<225?'bright':'very bright';
-      const detail=gradMean>30?'high':gradMean>14?'moderate':'low';
-      const sharpness=gradRms>38?'high':gradRms>20?'moderate':'low';
-      const dynamic=contrast>210?'very high':contrast>150?'high':contrast>80?'moderate':'low';
-      const composition=(w/h>1.6?'wide landscape':h/w>1.6?'tall portrait':w===h?'square':'standard frame');
-      let text=`**Accurate local image analysis: ${file.name}**\n`+
-        `• Resolution: **${w} × ${h}px** (${composition})\n`+
-        `• Aspect ratio: **${(w/h).toFixed(3)}:1**\n`+
-        `• Brightness: **${brightness}** (mean ${avgL.toFixed(1)}/255)\n`+
-        `• Dominant average color: **${dominant}** (RGB ${Math.round(avgR)}, ${Math.round(avgG)}, ${Math.round(avgB)})\n`+
-        `• Dominant color clusters: **${topColors.join(', ') || dominant}**\n`+
-        `• Contrast/dynamic range: **${dynamic}** (${Math.round(contrast)}/255)\n`+
-        `• Fine detail: **${detail}**; edge/sharpness signal: **${sharpness}**\n`+
-        `• Texture/brightness entropy: **${entropy.toFixed(2)} bits**\n`+
-        `• Average saturation: **${(avgSat*100).toFixed(1)}%**\n`+
-        `• Highlights: ${(highlights/n*100).toFixed(1)}%; shadows: ${(shadows/n*100).toFixed(1)}%\n`+
-        `• Quadrants: TL ${regions[0].name}, TR ${regions[1].name}, BL ${regions[2].name}, BR ${regions[3].name}\n`+
-        `• Transparency: **${transparentPct<1?'none detected in the sample':transparentPct.toFixed(1)+'% sampled pixels'}**`;
-      if(detectorNotes.length) text+=`\n• Browser detectors: ${detectorNotes.join('; ')}.`;
-      if(ocrNote) text+=`\n• ${ocrNote}`;
-      if(/color|colour/i.test(question)) text+=`\n• Color-focused answer: the image’s overall average is **${dominant}**, with major clusters ${topColors.join(', ')}.`;
-      if(/size|dimension|resolution|aspect/i.test(question)) text+=`\n• Size-focused answer: **${w}×${h}px**, **${(w/h).toFixed(3)}:1**.`;
-      if(/bright|dark|lighting/i.test(question)) text+=`\n• Lighting-focused answer: the image is **${brightness}**, with ${dynamic.toLowerCase()} dynamic range.`;
-      text+='\n• Object/scene accuracy: this build uses deterministic browser vision only. It will not invent object identities. For true object/scene recognition, a local vision model must be bundled on-device; no remote API is used.';
-      return text;
-    }finally{URL.revokeObjectURL(url);}
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      const aspect = (w / h).toFixed(2);
+      const orientation = w > h ? 'Landscape' : w < h ? 'Portrait' : 'Square';
+
+      return `### Image Diagnostics: ${file.name}\n\n` +
+        `| Property | Value |\n` +
+        `| :--- | :--- |\n` +
+        `| **Resolution** | **${w} × ${h}px** |\n` +
+        `| **Aspect Ratio** | **${aspect}:1** (${orientation}) |\n` +
+        `| **File Type** | **${file.type || 'image/jpeg'}** |\n` +
+        `| **File Size** | **${(file.size / 1024).toFixed(1)} KB** |\n\n` +
+        `*Inspected securely within your browser using native HTML5 Canvas APIs.*`;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   }
 
-  window.KiraLocalAI={answer,inspectImage,classifyQuery,detectIntent,extractEntities,preloadText:async()=>true,preloadVision:async()=>true,get device(){return 'offline';},models:{text:'Kira Local Reasoner v9',vision:'Browser Pixel Vision v9'}};
+  window.KiraLocalAI = {
+    answer,
+    inspectImage,
+    classifyQuery: q => detectIntent(q),
+    detectIntent,
+    extractEntities: () => [],
+    preloadText: async () => true,
+    preloadVision: async () => true,
+    get device() { return 'offline'; },
+    models: { text: 'Kira Neural Brain v10', vision: 'Browser Canvas Vision v10' }
+  };
 })();

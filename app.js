@@ -9,7 +9,7 @@ function saveChatState() {
   try {
     const messages = [...chatWindow.querySelectorAll('.message')].map(el => ({
       role: el.classList.contains('user') ? 'user' : 'bot',
-      text: el.querySelector('.message-text')?.textContent || ''
+      text: el.dataset.rawText || el.querySelector('.message-text')?.textContent || ''
     })).filter(x => x.text);
     localStorage.setItem(CHAT_MEMORY_KEY, JSON.stringify(messages.slice(-80)));
   } catch (_) {}
@@ -29,6 +29,7 @@ function restoreChatState() {
 function appendMessage(role, text = '', source = '', files = [], sources = []) {
   const wrapper = document.createElement('div');
   wrapper.className = `message ${role}`;
+  wrapper.dataset.rawText = text;
 
   const bubble = document.createElement('div');
   bubble.className = 'message-bubble';
@@ -36,7 +37,11 @@ function appendMessage(role, text = '', source = '', files = [], sources = []) {
   if (text) {
     const textEl = document.createElement('div');
     textEl.className = 'message-text';
-    textEl.textContent = text;
+    if (role === 'bot' && window.KiraMarkdown?.render) {
+      textEl.innerHTML = window.KiraMarkdown.render(text);
+    } else {
+      textEl.textContent = text;
+    }
     bubble.appendChild(textEl);
   }
 
@@ -531,8 +536,7 @@ async function sendMessage(text, attachedFiles = []) {
     const answerContext = [allContext, webContext].filter(Boolean).join('\n\n');
     const answer = await localAnswer(trimmed || 'Inspect the attached file.', window.kiraSettings?.context === false ? '' : answerContext);
     setLoading(false);
-    const finalAnswer = answer + ((!research.text && shouldSearch(trimmed)) ? `\n\n${researchNote(trimmed).text}` : '');
-    appendMessage('bot', finalAnswer, '', [], window.kiraSettings?.sources === false ? [] : research.sources);
+    appendMessage('bot', answer, '', [], window.kiraSettings?.sources === false ? [] : research.sources);
     if(window.kiraSettings?.voiceEnabled) speakKira(answer);
     saveChatState();
   } catch (error) {
@@ -547,7 +551,7 @@ async function sendMessage(text, attachedFiles = []) {
 function getChatTranscript() {
   return [...chatWindow.querySelectorAll('.message')].map(m => {
     const role = m.classList.contains('user') ? 'You' : 'Kira';
-    const text = m.querySelector('.message-text')?.textContent?.trim() || '';
+    const text = m.dataset.rawText || m.querySelector('.message-text')?.textContent?.trim() || '';
     return text ? `${role}: ${text}` : '';
   }).filter(Boolean).join('\n\n');
 }
@@ -585,7 +589,10 @@ document.addEventListener('keydown', e=>{
 // Wire top-bar actions without adding external dependencies.
 document.querySelector('.top-actions button[aria-label="Share"]')?.addEventListener('click',shareChat);
 document.querySelector('.top-actions button[aria-label="More"]')?.addEventListener('click',()=>{
-  const ok=confirm('Export this conversation as a text file?'); if(ok) exportChat('txt');
+  const choice = confirm('Download the entire project as a ZIP archive for GitHub?');
+  if (choice) {
+    window.location.href = '/api/download-zip';
+  }
 });
 // A lightweight chat search that filters the visible thread list and can also search messages.
 document.getElementById('searchChats')?.addEventListener('click',()=>{
@@ -740,7 +747,7 @@ function settingPage(key){
     data: ['Data controls', '<div class="settings-about">No AI API is configured. You can clear local data from Storage. Web research opens normal browser pages rather than sending data through a Kira backend.</div>'],
     remote: ['Remote control', '<div class="settings-about">Remote-control features are not enabled in this build.</div>'],
     report: ['Report bug', '<div class="settings-about">If something breaks, copy the browser console error and describe the steps that caused it. Kira has no built-in reporting server in this API-free build.</div>'],
-    export: ['Export & backup', '<div class="settings-choice"><span>Export chat as text</span><button class="settings-row-inline" id="exportTxt">Export</button></div><div class="settings-choice"><span>Export chat as JSON</span><button class="settings-row-inline" id="exportJson">Export</button></div><p class="settings-note">Exports are generated locally. Nothing is uploaded.</p>'],
+    export: ['Export & backup', `<div class="settings-choice"><span>Download complete project (ZIP)</span><a href="/api/download-zip" download="kira-project.zip" class="settings-row-inline" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">Download ZIP</a></div><div class="settings-choice"><span>Export chat as text</span><button class="settings-row-inline" id="exportTxt">Export</button></div><div class="settings-choice"><span>Export chat as JSON</span><button class="settings-row-inline" id="exportJson">Export</button></div><p class="settings-note">Download the complete updated project files to push to GitHub or run locally.</p>`],
     about: ['About Kira', '<div class="settings-about"><strong>Kira v21 — Advanced Local</strong><br><br>Local-first browser assistant with adaptive conversation, rule-based reasoning, file handling, advanced image diagnostics and optional web navigation. No OpenAI, Hugging Face or other AI API is required.</div>']
   };
   const page=pages[key] || pages.about;
